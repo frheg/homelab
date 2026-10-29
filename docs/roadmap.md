@@ -13,13 +13,17 @@ GitHub Actions). Reboot test passed on 2026-10-29: cluster came up by itself.
 4. (done) Panel at /panel/: GPU reserve and switch, profile start and stop. Homepage links to it.
 5. (done) Shared data services: Postgres, Qdrant, Neo4j, SearXNG. See migration-homelab.md.
 6. Embedding and rerank servers, as GPU or CPU consumers.
-7. Backups: Postgres dumps, /srv data, registry, age keys. Test a restore.
+7. Backups: /srv data and the registry. Path B (etcd restore) is rehearsed, path A is not.
 8. Monitoring: metrics, logs, GPU use, simple alerts.
-9. Security: drop initialPassword (sops), HTTPS, registry auth.
+9. Security: HTTPS, registry auth. SSH: add keys (one per device, plus a backup key in Pass), turn on Tailscale SSH as a second path, then turn off sshd passwords (local console login keeps its password). Add tailnet ACLs before anyone else joins. Delete the stale `initialPassword = "nixos"` lines in hosts/atlas.nix and hosts/kratos.nix (dead config: passwd was changed on both hosts, but a reinstall would bring it back).
 11. Service template: `scripts/new-service <name>` to scaffold code, image, manifests.
-12. Known risk: generic-cdi-plugin churns devices and races after a k3s or system
-    restart, which leaves one dead llm pod object on every boot (cosmetic).
-    Evaluate NVIDIA's official device plugin.
+12. generic-cdi-plugin: the 30 s device churn and the count of 2 are by design (one spare
+    device per used one), harmless because gpuctl is the exclusivity. A dead llm pod object
+    after a boot is the pod-resources race (cosmetic).
+    Evaluated NVIDIA's plugin (v0.20.1) on 2026-10-29, not adopted: it reads the GPU fine (NVML)
+    but its own CDI spec has no library mounts on NixOS (0 vs 55 in the host spec), needs an
+    FHS-style driver root, and its dev nodes come out under that root. Revisit when the NixOS
+    toolkit module or the plugin supports a non-FHS driver root. Option later: NVIDIA DRA driver.
 
 ## Migrating HomeLab (old project, ~/Documents/HomeLab): manifests done, see migration-homelab.md
 

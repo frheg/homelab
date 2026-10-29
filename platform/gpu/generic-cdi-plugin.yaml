@@ -2,6 +2,8 @@
 # request them. The spec is generated on the host by
 # nvidia-container-toolkit-cdi-generator.service (NixOS). Only runs on nodes
 # labelled nixos-nvidia-cdi=enabled (set in modules/k3s.nix).
+# By design it advertises every used device plus one spare, and swaps the spare for a new one
+# every 30 s. So the scheduler never limits GPU pods: gpuctl is the only exclusivity.
 apiVersion: v1
 kind: Namespace
 metadata:

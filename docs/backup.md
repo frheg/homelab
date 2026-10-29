@@ -9,7 +9,7 @@ Kratos has one disk, so every backup lives somewhere else.
 | Private keys (4 items) | Proton Pass, vault `kratos` | by hand, when a key changes |
 | etcd snapshot + k3s token | Proton Drive, `kratos-backups/` | nightly, encrypted with age |
 | Cluster manifests, code | GitHub (homelab, dotfiles_nix) | git push |
-| Databases | not yet | dumps come with the shared data services |
+| Databases (Postgres, Qdrant, Neo4j) | not backed up | decided 2026-10-29: rebuildable or accepted as lost |
 | Bulk data (HomeLab/data) | not yet | needs a second disk or cloud target |
 
 Not backed up, fetch again if lost: models, Wikipedia dump, container images
@@ -56,18 +56,26 @@ Path A, rebuild from git (preferred, the cluster is all in git):
 3. Recreate the Flux secrets (`flux-system`, `sops-age`) and apply `clusters/kratos/flux-system/gotk-sync.yaml`.
 4. Flux brings everything back. Volumes (registry, databases) start empty.
 
-Path B, restore etcd (cluster state and volumes' claims, not the volume data):
+Path B, restore etcd (cluster state and volume claims, not the volume data):
 1. Download the newest `etcd-DATE.tar.age` from Proton Drive.
-2. `age -d -i ~/.config/sops/age/keys.txt etcd-DATE.tar.age | tar -x`
-3. Put `token` at /var/lib/rancher/k3s/server/token, then follow the k3s docs for
-   `--cluster-reset --cluster-reset-restore-path=<snapshot>`.
+2. `age -d -i ~/.config/sops/age/keys.txt etcd-DATE.tar.age | tar -x` gives the snapshot and `token`.
+3. Stop k3s. Run it once with the reset flags and the token WITHOUT its trailing newline
+   (the file as is fails with "encrypted with different token"):
 
-Verified 2026-10-29: the nightly bundle downloads from Proton, and decrypts with the
-age key fetched from Proton Pass (contains the snapshot and the k3s token).
-Not rehearsed yet: a full k3s restore from that snapshot (path B), or a rebuild (path A).
+       sudo K3S_TOKEN="$(tr -d '\n' < token)" k3s server --cluster-reset \
+         --cluster-reset-restore-path=<snapshot>
+
+   It ends with "restart without --cluster-reset flag now". Then `systemctl start k3s`.
+4. Flux and the workloads come back from the restored state. Volume data does not (see the table).
+
+Rehearsed 2026-10-29 with a throwaway k3s v1.36.5 in Docker (control plane only, no agent): the
+Proton bundle decrypted with the key from Pass, the snapshot restored, and Flux, gpuctl, llm,
+Headlamp, Homepage, the registry, all Secrets, gpu-state and the PVC claim were back.
+The snapshot only holds what existed when it was taken (nightly), so newer objects return
+through Flux from git. Path A (rebuild from scratch) is not rehearsed.
 
 ## Still to do
 
-- Database dumps once Postgres, Qdrant and Neo4j run in the cluster.
+- Postgres holds the agent registry and sessions and is not backed up (accepted).
 - A target for bulk data before the HomeLab migration.
-- A restore rehearsal.
+- Rehearse path A (rebuild from git on a clean machine).
