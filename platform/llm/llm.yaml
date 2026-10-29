@@ -167,7 +167,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: gpuproxy
-          image: 100.117.102.56:5000/gpuproxy@sha256:bd80bf9468a16c6c12cc95b2c7253a48423f545f4a3a98691101e807b999914e
+          image: 100.117.102.56:5000/gpuproxy@sha256:1c555c77bf2cc81539ee732534012571e6a30da726b323ec62cc9a8f26a8a83e
           args: ["-consumer", "llm", "-backend", "http://llm-backend.llm", "-gpuctl", "http://gpuctl.gpu-system"]
           ports: [{ containerPort: 8080 }]
           readinessProbe:

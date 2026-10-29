@@ -285,3 +285,46 @@ func TestRefusedDuringRetryIs503(t *testing.T) {
 		t.Fatalf("code=%d retry=%q body=%q", w.Code, w.Header().Get("Retry-After"), w.Body.String())
 	}
 }
+
+func TestBackendThatIsLateToListenGetsItsPostBody(t *testing.T) {
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	addr := ln.Addr().String()
+	ln.Close()
+	var srv *http.Server
+	acq := &hookAcq{}
+	acq.hook = func(n int64) {
+		if n == 1 { // the endpoint shows up shortly after the arbiter says ready
+			time.AfterFunc(150*time.Millisecond, func() {
+				l, err := net.Listen("tcp", addr)
+				if err != nil {
+					t.Errorf("listen: %v", err)
+					return
+				}
+				srv = &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					b, _ := io.ReadAll(r.Body)
+					io.WriteString(w, "got "+string(b))
+				})}
+				go srv.Serve(l)
+			})
+		}
+	}
+	p, _ := New("llm", "http://"+addr, acq, time.Minute)
+	p.dialPause = 20 * time.Millisecond
+	w := httptest.NewRecorder()
+	p.ServeHTTP(w, httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"x":1}`)))
+	if w.Code != 200 || w.Body.String() != `got {"x":1}` {
+		t.Fatalf("code=%d body=%q", w.Code, w.Body.String())
+	}
+	srv.Close()
+}
+
+func TestBackendThatNeverListensIs502AfterTheGrace(t *testing.T) {
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	addr := ln.Addr().String()
+	ln.Close()
+	p, _ := New("llm", "http://"+addr, &fakeAcq{}, time.Minute)
+	p.dialGrace, p.dialPause = 100*time.Millisecond, 20*time.Millisecond
+	if w := get(p, "/"); w.Code != 502 {
+		t.Fatalf("code=%d", w.Code)
+	}
+}

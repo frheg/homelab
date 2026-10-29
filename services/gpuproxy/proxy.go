@@ -35,6 +35,9 @@ type Proxy struct {
 	backend  *httputil.ReverseProxy
 	now      func() time.Time
 
+	dialGrace time.Duration // how long a new backend may take to accept connections
+	dialPause time.Duration
+
 	mu         sync.Mutex // one acquire at a time, the others wait for its result
 	validUntil time.Time  // our lease is safe to reuse until then (half of ttl)
 	inflight   atomic.Int64
@@ -49,8 +52,13 @@ func New(consumer, backendURL string, acq Acquirer, ttl time.Duration) (*Proxy, 
 	orig := rp.Director
 	rp.Director = func(r *http.Request) { orig(r); r.Host = u.Host }
 	rp.FlushInterval = -1 // stream tokens as they come
-	p := &Proxy{consumer: consumer, acq: acq, ttl: ttl, backend: rp, now: time.Now}
-	rp.Transport = retryTransport{p: p, base: http.DefaultTransport}
+	p := &Proxy{consumer: consumer, acq: acq, ttl: ttl, backend: rp, now: time.Now,
+		dialGrace: 20 * time.Second, dialPause: 250 * time.Millisecond}
+	// every request dials, so a stale lease always shows up as a failed dial
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.DisableKeepAlives = true
+	tr.DialContext = p.dial
+	rp.Transport = tr
 	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		var refused *RefusedError
 		if errors.As(err, &refused) {
@@ -161,24 +169,32 @@ func (p *Proxy) invalidate() {
 	p.mu.Unlock()
 }
 
-// retryTransport covers the case where our cached lease is stale: another consumer
-// took the GPU and the backend was stopped. A failed dial sends nothing, so it is
-// safe to ask the arbiter again and replay the request once.
-type retryTransport struct {
-	p    *Proxy
-	base http.RoundTripper
-}
-
-func (t retryTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	resp, err := t.base.RoundTrip(r)
-	var op *net.OpError
-	if err == nil || !errors.As(err, &op) || op.Op != "dial" {
-		return resp, err
+// dial connects to the backend. Nothing has been sent yet, so on failure it is safe
+// to ask the arbiter again and keep trying: our cached lease may be stale (someone else
+// took the GPU), or the backend just started and its Service has no endpoint yet.
+func (p *Proxy) dial(ctx context.Context, network, addr string) (net.Conn, error) {
+	d := net.Dialer{Timeout: 5 * time.Second}
+	conn, err := d.DialContext(ctx, network, addr)
+	if err == nil {
+		return conn, nil
 	}
-	log.Printf("%s unreachable, asking for the GPU again: %v", t.p.consumer, err)
-	t.p.invalidate()
-	if err := t.p.ensure(r.Context()); err != nil {
-		return nil, err
+	log.Printf("%s unreachable, asking for the GPU again: %v", p.consumer, err)
+	p.invalidate()
+	deadline := p.now().Add(p.dialGrace)
+	for {
+		if aerr := p.ensure(ctx); aerr != nil {
+			return nil, aerr
+		}
+		if conn, err = d.DialContext(ctx, network, addr); err == nil {
+			return conn, nil
+		}
+		if !p.now().Before(deadline) {
+			return nil, err
+		}
+		select {
+		case <-time.After(p.dialPause):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
-	return t.base.RoundTrip(r)
 }
