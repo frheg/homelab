@@ -72,3 +72,25 @@ Ingest (uses the GPU, so reserve it first):
 The old data is moved, not copied. To go back: stop the pods (`profctl down homelab`),
 move the directories from /srv back to ~/Documents/HomeLab/data, and use the old
 docker compose. The old Postgres data directory was never touched.
+
+## Verified on 2026-10-29
+
+- Data intact: Postgres 6 agents / 82 sessions / 314 runs, Neo4j 18,774,334 nodes
+  (new password works), Qdrant `wikipedia` 30,464 points.
+- The API reaches Postgres, Qdrant, Neo4j, SearXNG and both gateways through the
+  NetworkPolicies. `profctl down homelab` then `up` restored every workload.
+- CPU gateway: nemotron-3.5-lightning-cpu ran at 11.4 tok/s with the GPU untouched.
+- Stable Diffusion: `gpuctl acquire stable-diffusion` switched the GPU in 18 s,
+  found the RTX 5060 Ti (compute 12.0) running non-root.
+
+## Not proven yet
+
+- **Strata.** The first `gpuctl acquire strata` timed out: the engine needs far more
+  than the 120 s switch limit. Plan: a per-consumer start timeout annotation read by
+  gpuctl. It also page-locks tens of GB of RAM, so try it with the rest of the
+  homelab profile stopped (`profctl down homelab`).
+- **k3s crash.** During that attempt k3s 1.36.5 panicked (nil pointer in the
+  replica-set controller, journal: `panic: runtime error: invalid memory address`)
+  and systemd restarted it within 30 s. Nothing was lost; gpuctl recovered its state.
+  If it repeats, report it upstream and consider a k3s version bump.
+- The LLM chat path from the API (needs a model loaded on the GPU) was not exercised.
