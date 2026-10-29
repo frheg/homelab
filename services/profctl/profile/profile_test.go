@@ -1,4 +1,4 @@
-package main
+package profile
 
 import (
 	"bytes"
@@ -47,7 +47,7 @@ func TestDownThenUpRestoresReplicas(t *testing.T) {
 	)
 	ctx := context.Background()
 	var out bytes.Buffer
-	if err := down(ctx, cs, "demo", &out); err != nil {
+	if err := Down(ctx, cs, "demo", &out); err != nil {
 		t.Fatal(err)
 	}
 	if got(t, cs, "a", "web") != 0 || got(t, cs, "b", "db") != 0 {
@@ -56,7 +56,7 @@ func TestDownThenUpRestoresReplicas(t *testing.T) {
 	if got(t, cs, "c", "keep") != 2 {
 		t.Fatal("a workload in another profile was touched")
 	}
-	if err := up(ctx, cs, "demo", &out); err != nil {
+	if err := Up(ctx, cs, "demo", &out); err != nil {
 		t.Fatal(err)
 	}
 	if got(t, cs, "a", "web") != 3 || got(t, cs, "b", "db") != 1 {
@@ -75,7 +75,7 @@ func TestGPUConsumersAreLeftAlone(t *testing.T) {
 		dep("a", "sd", i32(1), map[string]string{consumerLabel: "sd"}),
 	)
 	var out bytes.Buffer
-	if err := down(context.Background(), cs, "demo", &out); err != nil {
+	if err := Down(context.Background(), cs, "demo", &out); err != nil {
 		t.Fatal(err)
 	}
 	if got(t, cs, "a", "web") != 0 {
@@ -93,7 +93,7 @@ func TestGPUProxiesStayUp(t *testing.T) {
 		dep("a", "gpuproxy-sd", i32(1), map[string]string{proxyLabel: "sd"}),
 	)
 	var out bytes.Buffer
-	if err := down(context.Background(), cs, "demo", &out); err != nil {
+	if err := Down(context.Background(), cs, "demo", &out); err != nil {
 		t.Fatal(err)
 	}
 	if got(t, cs, "a", "web") != 0 {
@@ -108,9 +108,9 @@ func TestDownTwiceKeepsTheFirstSavedCount(t *testing.T) {
 	cs := fake.NewSimpleClientset(ns("a", "demo"), dep("a", "web", i32(3), nil))
 	ctx := context.Background()
 	var out bytes.Buffer
-	down(ctx, cs, "demo", &out)
-	down(ctx, cs, "demo", &out)
-	up(ctx, cs, "demo", &out)
+	Down(ctx, cs, "demo", &out)
+	Down(ctx, cs, "demo", &out)
+	Up(ctx, cs, "demo", &out)
 	if got(t, cs, "a", "web") != 3 {
 		t.Fatalf("web = %d, want 3", got(t, cs, "a", "web"))
 	}
@@ -119,7 +119,7 @@ func TestDownTwiceKeepsTheFirstSavedCount(t *testing.T) {
 func TestUnknownProfileIsAnError(t *testing.T) {
 	cs := fake.NewSimpleClientset(ns("a", "demo"))
 	var out bytes.Buffer
-	err := down(context.Background(), cs, "nope", &out)
+	err := Down(context.Background(), cs, "nope", &out)
 	if err == nil || !strings.Contains(err.Error(), "no namespace") {
 		t.Fatalf("err = %v", err)
 	}
@@ -127,11 +127,34 @@ func TestUnknownProfileIsAnError(t *testing.T) {
 
 func TestListShowsAllProfiles(t *testing.T) {
 	cs := fake.NewSimpleClientset(ns("a", "x", "y"), ns("b", "x"))
-	ps, err := profiles(context.Background(), cs)
+	ps, err := Profiles(context.Background(), cs)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(ps["x"]) != 2 || len(ps["y"]) != 1 {
 		t.Fatalf("profiles = %v", ps)
+	}
+}
+
+func TestItemsListWorkloadsAndWhyTheyAreLeftAlone(t *testing.T) {
+	cs := fake.NewSimpleClientset(
+		ns("a", "demo"),
+		dep("a", "web", i32(2), nil),
+		dep("a", "sd", i32(0), map[string]string{consumerLabel: "sd"}),
+		dep("a", "px", i32(1), map[string]string{proxyLabel: "sd"}),
+	)
+	items, err := Items(context.Background(), cs, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	notes := map[string]string{}
+	for _, it := range items {
+		notes[it.Name] = it.Note
+	}
+	if len(items) != 3 || notes["web"] != "" || notes["sd"] == "" || notes["px"] == "" {
+		t.Fatalf("items = %+v", items)
+	}
+	if _, err := Items(context.Background(), cs, "missing"); err == nil {
+		t.Fatal("unknown profile should be an error")
 	}
 }

@@ -10,7 +10,7 @@ GitHub Actions). Reboot test passed on 2026-10-29: cluster came up by itself.
 ## Missing for daily use
 
 3. (done) gpuproxy: wakes llm, strata and stable-diffusion on request. Verified on the cluster.
-4. Homepage buttons for profctl and the GPU reserve. profctl itself exists (CLI).
+4. (done) Panel at /panel/: GPU reserve and switch, profile start and stop. Homepage links to it.
 5. (done) Shared data services: Postgres, Qdrant, Neo4j, SearXNG. See migration-homelab.md.
 6. Embedding and rerank servers, as GPU or CPU consumers.
 7. Backups: Postgres dumps, /srv data, registry, age keys. Test a restore.

@@ -7,6 +7,19 @@ data:
     title: kratos
     headerStyle: clean
   services.yaml: |
+    - Control:
+        - Panel:
+            href: /panel/
+            description: GPU and profile buttons
+            widget:
+              type: customapi
+              url: http://panel.platform-ui/api/state
+              refreshInterval: 10000
+              mappings:
+                - field: gpu.holder
+                  label: GPU holder
+                - field: gpu.reserved_by
+                  label: Reserved by
     - Cluster:
         - Headlamp:
             href: /headlamp/

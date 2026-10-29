@@ -12,6 +12,7 @@ k3s starts at boot. Workloads start by themselves only for the GPU default (llm)
     kubectl get pods -A          # needs ~/.kube/config
     http://kratos/               # Homepage, user v1s, password in ~/.config/homelab/ui-password
     http://kratos/headlamp/      # needs the trailing slash, then a token
+    http://kratos/panel/         # buttons: reserve the GPU, switch it, start and stop profiles
 
 Tokens (read-only, or use headlamp-admin-token to change things):
 
@@ -112,3 +113,12 @@ Calling `http://llm.llm`, `http://strata:8080` or `http://stable-diffusion:1234`
 the GPU for that consumer by itself (gpuproxy asks gpuctl), then forwards the request.
 If you reserved the GPU or another consumer has an active lease, the call returns 503
 with `Retry-After: 30` and the reason in the body.
+
+## The panel
+
+`/panel/` (services/panel) has the same operations as `gpuctl` and `profctl`, as buttons.
+It keeps no state and has no login of its own: Traefik asks for the basic-auth first,
+and only Traefik and the Homepage widget may reach the pod (NetworkPolicy).
+Changes are POST only and need an `X-Panel` header and a same-host Origin.
+"use <consumer>" is `gpuctl acquire` with a 30 minute lease, it returns at once and the
+page shows the result. The whole `platform-ui` namespace is labelled `gpu.kratos/access`.

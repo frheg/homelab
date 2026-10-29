@@ -1,4 +1,6 @@
-package main
+// Package profile starts and stops groups of workloads. A profile is the set of
+// namespaces labelled profile.kratos/<name>=true.
+package profile
 
 import (
 	"context"
@@ -53,7 +55,7 @@ func namespaces(ctx context.Context, cs kubernetes.Interface, profile string) ([
 }
 
 // profiles lists every profile name found on namespaces, with its namespaces.
-func profiles(ctx context.Context, cs kubernetes.Interface) (map[string][]string, error) {
+func Profiles(ctx context.Context, cs kubernetes.Interface) (map[string][]string, error) {
 	l, err := cs.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -115,8 +117,8 @@ func scale(ctx context.Context, cs kubernetes.Interface, w workload, replicas in
 	return err
 }
 
-// down stops every workload not left alone in the profile and remembers its replicas.
-func down(ctx context.Context, cs kubernetes.Interface, profile string, out io.Writer) error {
+// Down stops every workload not left alone in the profile and remembers its replicas.
+func Down(ctx context.Context, cs kubernetes.Interface, profile string, out io.Writer) error {
 	return each(ctx, cs, profile, out, func(w workload) (bool, error) {
 		if w.replicas == 0 {
 			return false, nil
@@ -126,8 +128,8 @@ func down(ctx context.Context, cs kubernetes.Interface, profile string, out io.W
 	})
 }
 
-// up starts every stopped workload not left alone at its saved replicas, default 1.
-func up(ctx context.Context, cs kubernetes.Interface, profile string, out io.Writer) error {
+// Up starts every stopped workload not left alone at its saved replicas, default 1.
+func Up(ctx context.Context, cs kubernetes.Interface, profile string, out io.Writer) error {
 	return each(ctx, cs, profile, out, func(w workload) (bool, error) {
 		if w.replicas > 0 {
 			return false, nil
@@ -172,27 +174,47 @@ func each(ctx context.Context, cs kubernetes.Interface, profile string, out io.W
 	return nil
 }
 
-// status prints one line per workload, GPU consumers marked.
-func status(ctx context.Context, cs kubernetes.Interface, profile string, out io.Writer) error {
+// Item is one workload of a profile, for UIs. Note says why it is left alone, if so.
+type Item struct {
+	Namespace, Kind, Name string
+	Replicas, Ready       int32
+	Note                  string
+}
+
+// Items lists every workload of the profile.
+func Items(ctx context.Context, cs kubernetes.Interface, profile string) ([]Item, error) {
 	nss, err := namespaces(ctx, cs, profile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(nss) == 0 {
-		return fmt.Errorf("no namespace has the label %s%s=true", profilePrefix, profile)
+		return nil, fmt.Errorf("no namespace has the label %s%s=true", profilePrefix, profile)
 	}
+	var out []Item
 	for _, ns := range nss {
 		ws, err := workloads(ctx, cs, ns)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, w := range ws {
-			note := ""
-			if w.leftAlone != "" {
-				note = "  (" + w.leftAlone + ")"
-			}
-			fmt.Fprintf(out, "%-14s %s/%-24s %d/%d%s\n", w.kind, w.ns, w.name, w.ready, w.replicas, note)
+			out = append(out, Item{w.ns, w.kind, w.name, w.replicas, w.ready, w.leftAlone})
 		}
+	}
+	return out, nil
+}
+
+// Status prints one line per workload, GPU consumers marked.
+func Status(ctx context.Context, cs kubernetes.Interface, profile string, out io.Writer) error {
+	items, err := Items(ctx, cs, profile)
+	if err != nil {
+		return err
+	}
+	for _, it := range items {
+		note := ""
+		if it.Note != "" {
+			note = "  (" + it.Note + ")"
+		}
+		fmt.Fprintf(out, "%-14s %s/%-24s %d/%d%s\n", it.Kind, it.Namespace, it.Name, it.Ready, it.Replicas, note)
 	}
 	return nil
 }

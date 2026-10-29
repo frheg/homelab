@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/frheg/homelab/services/profctl/profile"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -39,7 +40,7 @@ func main() {
 	ctx := context.Background()
 	cmd := os.Args[1]
 	if cmd == "list" {
-		ps, err := profiles(ctx, cs)
+		ps, err := profile.Profiles(ctx, cs)
 		if err != nil {
 			fail(err)
 		}
@@ -60,11 +61,11 @@ func main() {
 	p := os.Args[2]
 	switch cmd {
 	case "status":
-		err = status(ctx, cs, p, os.Stdout)
+		err = profile.Status(ctx, cs, p, os.Stdout)
 	case "up":
-		err = up(ctx, cs, p, os.Stdout)
+		err = profile.Up(ctx, cs, p, os.Stdout)
 	case "down":
-		err = down(ctx, cs, p, os.Stdout)
+		err = profile.Down(ctx, cs, p, os.Stdout)
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(1)

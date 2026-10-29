@@ -6,4 +6,5 @@ resources:
   - headlamp.yaml
   - headlamp-rbac.yaml
   - homepage.yaml
+  - panel.yaml
   - ingress.yaml

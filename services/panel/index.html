@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kratos panel</title>
+<style>
+  :root { --bg: #f6f6f4; --fg: #1d1d1b; --mute: #6b6b66; --card: #fff; --line: #dcdcd6; --acc: #1f6f5c; --bad: #a33a2a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --fg: #e8e8e3; --mute: #9a9a92; --card: #1f1f1d; --line: #34342f; --acc: #4fb59c; --bad: #e0705e; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 18px; margin: 0 0 12px; }
+  h2 { font-size: 14px; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  .kv { display: grid; grid-template-columns: 90px 1fr; gap: 2px 8px; }
+  .kv span:nth-child(odd) { color: var(--mute); }
+  button, select { font: inherit; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--acc); }
+  button.go { background: var(--acc); border-color: var(--acc); color: var(--bg); }
+  button:disabled { opacity: .45; cursor: default; }
+  .prof { padding: 10px 0; border-top: 1px solid var(--line); }
+  .prof:first-of-type { border-top: 0; }
+  .prof .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  details { margin-top: 6px; color: var(--mute); font-size: 13px; }
+  details div { font-family: ui-monospace, monospace; }
+  #msg { color: var(--mute); font-size: 13px; min-height: 1.4em; }
+  #msg.bad, .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <h1>kratos</h1>
+  <section id="gpu"><h2>GPU</h2><div id="gpu-body"></div></section>
+  <section id="profiles"><h2>Profiles</h2><div id="prof-body"></div></section>
+  <div id="msg"></div>
+</main>
+<script>
+"use strict";
+let busy = false;
+let forValue = "2h"; // survives the refresh
+
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v === true) e.setAttribute(k, "");
+    else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) e.append(k);
+  return e;
+}
+
+function clock(iso) {
+  const d = new Date(iso);
+  return isNaN(d) || d.getFullYear() < 2000 ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+async function act(path, confirmText) {
+  if (confirmText && !confirm(confirmText)) return;
+  busy = true;
+  setMsg("working ...");
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "X-Panel": "1" } });
+    if (!r.ok && r.status !== 204 && r.status !== 202) {
+      const j = await r.json().catch(() => ({}));
+      setMsg(j.error || r.statusText, true);
+    }
+  } catch (e) {
+    setMsg(String(e), true);
+  }
+  busy = false;
+  load();
+}
+
+function setMsg(text, bad) {
+  const m = document.getElementById("msg");
+  m.textContent = text;
+  m.className = bad ? "bad" : "";
+}
+
+function renderGPU(s) {
+  const body = document.getElementById("gpu-body");
+  if (s.gpu_error) { body.replaceChildren(h("div", { class: "bad" }, "gpuctl: " + s.gpu_error)); return; }
+  const g = s.gpu;
+  const reserved = !!g.reserved_by;
+  const forSel = h("select", { onchange: () => { forValue = forSel.value; } },
+    ["1h", "2h", "4h", "8h", ""].map(v => h("option", { value: v, selected: v === forValue }, v || "until released")));
+  const kv = h("div", { class: "kv" },
+    h("span", {}, "holder"), h("span", {}, g.holder || "nobody"),
+    h("span", {}, "lease"), h("span", {}, g.lease_until && clock(g.lease_until) ? "until " + clock(g.lease_until) : "none"),
+    h("span", {}, "reserved"), h("span", {}, reserved ? g.reserved_by + (clock(g.reserved_until) ? " until " + clock(g.reserved_until) : " until released") : "no"));
+  const reserveRow = reserved
+    ? h("div", { class: "row" }, h("button", { class: "go", disabled: busy, onclick: () => act("api/gpu/unreserve") }, "Release reservation"))
+    : h("div", { class: "row" }, forSel,
+        h("button", { class: "go", disabled: busy, onclick: () => act("api/gpu/reserve?for=" + forSel.value, "Stop every GPU service and reserve the GPU?") }, "Reserve for me"));
+  const switchRow = h("div", { class: "row" }, h("span", { class: "kv" }, h("span", {}, "use")),
+    s.consumers.map(c => h("button", { disabled: busy || reserved || g.holder === c, onclick: () => act("api/gpu/acquire?name=" + encodeURIComponent(c)) }, c)),
+    g.holder && g.lease_until && clock(g.lease_until)
+      ? h("button", { disabled: busy, onclick: () => act("api/gpu/release?name=" + encodeURIComponent(g.holder)) }, "End lease")
+      : "");
+  body.replaceChildren(kv, reserveRow, switchRow);
+}
+
+function renderProfiles(s) {
+  const body = document.getElementById("prof-body");
+  if (s.error) { body.replaceChildren(h("div", { class: "bad" }, s.error)); return; }
+  if (!s.profiles.length) { body.replaceChildren(h("div", {}, "no profiles")); return; }
+  const open = new Set([...body.querySelectorAll("details[open]")].map(d => d.dataset.name));
+  body.replaceChildren(...s.profiles.map(p => {
+    const name = encodeURIComponent(p.name);
+    const det = h("details", { "data-name": p.name, open: open.has(p.name) },
+      h("summary", {}, p.namespaces.join(", ")),
+      p.items.map(i => h("div", {}, `${i.Namespace}/${i.Name} ${i.Ready}/${i.Replicas}${i.Note ? "  (" + i.Note + ")" : ""}`)));
+    return h("div", { class: "prof" },
+      h("div", { class: "head" },
+        h("strong", {}, p.name),
+        h("span", {}, `${p.running}/${p.total} running`),
+        h("span", { class: "row" },
+          h("button", { class: "go", disabled: busy || p.running === p.total, onclick: () => act("api/profile/up?name=" + name) }, "Start"),
+          h("button", { disabled: busy || p.running === 0, onclick: () => act("api/profile/down?name=" + name, `Stop profile ${p.name}?`) }, "Stop"))),
+      det);
+  }));
+}
+
+async function load() {
+  try {
+    const r = await fetch("api/state");
+    const s = await r.json();
+    renderGPU(s);
+    renderProfiles(s);
+    if (!busy && s.last) setMsg(s.last);
+  } catch (e) {
+    setMsg(String(e), true);
+  }
+}
+
+load();
+setInterval(() => { if (!busy) load(); }, 3000);
+</script>
+</body>
+</html>
