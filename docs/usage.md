@@ -17,6 +17,16 @@ Tokens (read-only, or use headlamp-admin-token to change things):
 
     kubectl -n platform-ui get secret headlamp-viewer-token -o jsonpath='{.data.token}' | base64 -d
 
+## Start and stop groups
+
+    profctl list                  profiles and their namespaces
+    profctl status homelab
+    profctl down homelab          stop searxng, postgres, qdrant, neo4j, api
+    profctl up homelab            start them again
+
+A profile is the set of namespaces labelled `profile.kratos/<name>=true`.
+GPU consumers are not touched by profctl, gpuctl owns them.
+
 ## The GPU
 
 One consumer holds it at a time. The default is `llm` (the shared model gateway).
@@ -32,8 +42,9 @@ Exit codes: 0 ok, 1 error, 2 refused (busy or reserved).
 
 ## Use the LLM
 
-From a pod: http://llm.llm/v1/chat/completions (OpenAI API).
-The pod's namespace must be labelled `llm.kratos/access=true`.
+From a pod: http://llm.llm/v1/chat/completions (GPU models) or
+http://llm-cpu.llm/v1/chat/completions (CPU-only models, always available).
+The pod namespace must be labelled `llm.kratos/access=true`.
 From your shell: `kubectl -n llm port-forward deploy/llm 18080:8080`.
 Models are files in /srv/models, listed in platform/llm/llm.yaml.
 
@@ -76,3 +87,21 @@ Never commit a plain secret. Back up the age keys, they cannot be recreated.
 
 A reservation or switch that hangs: check for dead pods with the consumer
 label, gpuctl ignores finished pods but waits for running ones.
+
+## Add or change an LLM model
+
+One file per model in platform/llm/models/<name>.yaml: `runtime: gpu` or `cpu`,
+`ttl`, and the llama-server `cmd`. VRAM/RAM split: `-ngl` and `--n-cpu-moe`.
+CPU only: `-ngl 0` (CI rejects a cpu model without it). Then regenerate and commit:
+
+    (cd ~/homelab/services/llmconf && go run . -dir ../../platform/llm)
+
+## Shared services
+
+Each is reached by name once the project namespace has the access label:
+
+    searxng.searxng   (searxng.kratos/access=true)
+    postgres.postgres (postgres.kratos/access=true)   new database: scripts/pg-newdb <name>
+    qdrant.qdrant     (qdrant.kratos/access=true)
+    neo4j.neo4j       (neo4j.kratos/access=true)
+    llm.llm, llm-cpu.llm (llm.kratos/access=true)

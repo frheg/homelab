@@ -1,0 +1,12 @@
+#!/bin/sh
+# usage: scripts/pg-restore-old [dump]
+# Restores the old HomeLab database (made by pg_dump -Fc) into the shared Postgres.
+# --clean makes it safe even if the API already created empty tables on its first start.
+set -eu
+dump=${1:-$HOME/pg-migration/homelab.dump}
+kubectl -n postgres exec -i deploy/postgres -- pg_restore -U postgres -d homelab \
+  --role=homelab --clean --if-exists --no-owner --no-privileges < "$dump"
+for t in agents sessions agent_runs; do
+  printf '%s: ' "$t"; kubectl -n postgres exec deploy/postgres -- psql -U postgres -d homelab -Atc "select count(*) from $t"
+done
+echo "now: kubectl -n homelab rollout restart deploy/api"

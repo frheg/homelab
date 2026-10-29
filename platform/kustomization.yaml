@@ -4,6 +4,9 @@ resources:
   - gpu
   - gpuctl
   - llm
+  - neo4j
+  - postgres
+  - qdrant
   - registry
   - searxng
   - ui

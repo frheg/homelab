@@ -1,0 +1,8 @@
+# Mamba2 state has constant size, so context is cheap. n-cpu-moe 24, ctx 131072: 15.8GB, 
+# about 500MB headroom. Sibling models had CUDA crashes, this one was stable over a 
+# 6000-token run.
+runtime: gpu
+description: "Long-context hybrid Mamba2/Attention/MoE, 30B/3B active"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/nemotron-3.5-lightning-30b-a3b-Q4_K_M.gguf -ngl 999 --n-cpu-moe 24 --ctx-size 131072 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0

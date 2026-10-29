@@ -12,8 +12,9 @@ import (
 type Cluster interface {
 	Consumers(ctx context.Context) ([]string, error)
 	Scale(ctx context.Context, consumer string, replicas int32) error
-	WaitGone(ctx context.Context, consumer string) error  // no pods left, even terminating
-	WaitReady(ctx context.Context, consumer string) error // all pods ready
+	Replicas(ctx context.Context, consumer string) (int32, error) // desired, summed over its Deployments
+	WaitGone(ctx context.Context, consumer string) error          // no pods left, even terminating
+	WaitReady(ctx context.Context, consumer string) error         // all pods ready
 }
 
 type Config struct {
@@ -165,6 +166,7 @@ func (a *Arbiter) Tick(ctx context.Context) {
 	s := a.Status()
 	if s.ReservedBy != "" {
 		if s.reserved(now) {
+			a.enforce(ctx)
 			return
 		}
 		log.Printf("reservation by %s ended", s.ReservedBy)
@@ -174,6 +176,7 @@ func (a *Arbiter) Tick(ctx context.Context) {
 			!now.Before(s.LeaseUntil.Add(a.cfg.IdleGrace)) &&
 			!now.Before(s.Since.Add(a.cfg.MinHold)))
 	if !back {
+		a.enforce(ctx)
 		return
 	}
 	if err := a.switchTo(ctx, a.cfg.Default, 0); err != nil {
@@ -263,4 +266,34 @@ func (a *Arbiter) set(ctx context.Context, s State) error {
 	a.state = s
 	a.smu.Unlock()
 	return nil
+}
+
+// enforce scales down every consumer that is not the holder. A new consumer
+// starts with one replica and someone may scale by hand, so the one-holder rule
+// is checked on every tick, not only at a switch. The holder is left alone.
+func (a *Arbiter) enforce(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, a.cfg.SwitchTimeout)
+	defer cancel()
+	holder := a.Status().Holder
+	all, err := a.cl.Consumers(ctx)
+	if err != nil {
+		log.Printf("enforce: list consumers: %v", err)
+		return
+	}
+	for _, c := range all {
+		if c == holder {
+			continue
+		}
+		n, err := a.cl.Replicas(ctx, c)
+		if err != nil {
+			log.Printf("enforce: replicas of %s: %v", c, err)
+			continue
+		}
+		if n > 0 {
+			log.Printf("enforce: %s runs but holder is %q, scaling it to 0", c, holder)
+			if err := a.cl.Scale(ctx, c, 0); err != nil {
+				log.Printf("enforce: stop %s: %v", c, err)
+			}
+		}
+	}
 }

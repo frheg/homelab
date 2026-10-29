@@ -10,8 +10,8 @@ GitHub Actions). Reboot test passed on 2026-10-29: cluster came up by itself.
 ## Missing for daily use
 
 3. gpuproxy: wake a GPU consumer on request. Design in gpu-arbiter.md.
-4. profctl and Homepage buttons: start/stop groups of services, GPU reserve button.
-5. Shared data services: Postgres (pgvector), Qdrant, Neo4j, SearXNG.
+4. Homepage buttons for profctl and the GPU reserve. profctl itself exists (CLI).
+5. (done) Shared data services: Postgres, Qdrant, Neo4j, SearXNG. See migration-homelab.md.
 6. Embedding and rerank servers, as GPU or CPU consumers.
 7. Backups: Postgres dumps, /srv data, registry, age keys. Test a restore.
 8. Monitoring: metrics, logs, GPU use, simple alerts.
@@ -21,7 +21,7 @@ GitHub Actions). Reboot test passed on 2026-10-29: cluster came up by itself.
     restart, which leaves one dead llm pod object on every boot (cosmetic).
     Evaluate NVIDIA's official device plugin.
 
-## Migrating HomeLab (old project, ~/Documents/HomeLab)
+## Migrating HomeLab (old project, ~/Documents/HomeLab): manifests done, see migration-homelab.md
 
 | Old service | New home | Notes |
 |---|---|---|

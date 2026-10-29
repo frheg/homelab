@@ -39,6 +39,8 @@ func (f *fakeCluster) Scale(_ context.Context, c string, n int32) error {
 	return nil
 }
 
+func (f *fakeCluster) Replicas(_ context.Context, c string) (int32, error) { return f.replicas[c], nil }
+
 func (f *fakeCluster) WaitGone(_ context.Context, c string) error {
 	if f.stuck[c] {
 		return errors.New("pods still terminating")
@@ -372,5 +374,36 @@ func TestReserveGivesUpAfterSwitchTimeout(t *testing.T) {
 	}
 	if _, err := a.Acquire(context.Background(), "homelab", time.Minute); err == nil {
 		t.Fatal("acquire must be refused while reserved")
+	}
+}
+
+func TestTickScalesDownAStrayConsumer(t *testing.T) {
+	a, f, _, _ := setup("thesis", "homelab")
+	ctx := context.Background()
+	a.Tick(ctx)
+	f.replicas["homelab"] = 1 // appears at one replica, as a new Deployment does
+	a.Tick(ctx)
+	wantOnly(t, f, "thesis")
+}
+
+func TestTickLeavesTheHolderAlone(t *testing.T) {
+	a, f, _, _ := setup("thesis", "homelab")
+	ctx := context.Background()
+	a.Tick(ctx)
+	f.ops = nil
+	a.Tick(ctx)
+	if len(f.ops) != 0 {
+		t.Fatalf("a quiet tick must not scale anything, got %v", f.ops)
+	}
+}
+
+func TestTickKeepsEverythingOffWhileReserved(t *testing.T) {
+	a, f, _, _ := setup("thesis", "homelab")
+	ctx := context.Background()
+	a.Reserve(ctx, "v1s", 0)
+	f.replicas["homelab"] = 1
+	a.Tick(ctx)
+	if len(running(f)) != 0 {
+		t.Fatalf("running = %v, want none while reserved", running(f))
 	}
 }

@@ -161,3 +161,10 @@ func TestProfileNamespaceMustNotSetReplicas(t *testing.T) {
 		t.Errorf("replicas outside a profile namespace flagged: %s", got)
 	}
 }
+
+func TestPlaceholderDigestIsNotPinned(t *testing.T) {
+	y := "kind: Deployment\nmetadata: {name: a, namespace: n}\nspec:\n  template:\n    spec:\n      containers:\n        - name: c\n          image: r/x@sha256:@PLACEHOLDER@\n          resources: {requests: {cpu: 1m}, limits: {memory: 8Mi}}\n"
+	if got := violations(t, y); !strings.Contains(got, "not pinned") {
+		t.Fatalf("placeholder digest passed: %q", got)
+	}
+}

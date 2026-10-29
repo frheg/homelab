@@ -1,0 +1,15 @@
+#!/bin/sh
+# usage: scripts/pg-newdb <name>
+# Creates a database and a login role <name> on the shared Postgres, with a random
+# password, and prints the password once. Put it in a SOPS secret for the project.
+set -eu
+name=$1
+case $name in *[!a-z0-9_]*|"") echo "name: lowercase letters, digits, _" >&2; exit 1;; esac
+pw=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
+kubectl -n postgres exec -i deploy/postgres -- psql -v ON_ERROR_STOP=1 -U postgres -v pw="$pw" <<SQL
+CREATE ROLE $name LOGIN PASSWORD :'pw';
+CREATE DATABASE $name OWNER $name;
+SQL
+echo "database and role: $name"
+echo "password (shown once): $pw"
+echo "label the project namespace: kubectl label ns <ns> postgres.kratos/access=true"

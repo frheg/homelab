@@ -1,0 +1,6 @@
+# n-cpu-moe 12, ctx 32768: 15.3GB, about 1GB headroom. Fastest of the four base models.
+runtime: gpu
+description: "EXPERIMENTAL: Poolside coding model, 33B/8B active"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/laguna-xs-2.1-Q4_K_M.gguf -ngl 999 --n-cpu-moe 12 --ctx-size 32768 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0

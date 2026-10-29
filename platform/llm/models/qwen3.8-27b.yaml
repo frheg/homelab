@@ -1,0 +1,8 @@
+# Dense, not MoE, so no --n-cpu-moe. FFN layers go to CPU with --override-tensor instead. 
+# Needs llama.cpp build 10450 or newer, older builds silently corrupt output on the 
+# DeltaNet CUDA path. Offload blk 0-12 plus MTP, ctx 16384: 14.77GB, 20.1 tok/s.
+runtime: gpu
+description: "EXPERIMENTAL: dense 27B coding model, MTP speculative decode"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/Qwen3.8-27B-UD-Q4_K_M.gguf -ngl 999 --override-tensor "blk\.([0-9]|1[0-2])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1

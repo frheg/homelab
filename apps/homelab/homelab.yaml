@@ -1,0 +1,287 @@
+# The old HomeLab project: agent API, Wikipedia ingest, and two GPU experiments.
+# Uses the shared services (llm, searxng, postgres, qdrant, neo4j) through the
+# access labels on this namespace. Start and stop everything with:
+#   profctl up homelab / profctl down homelab        (the GPU experiments: gpuctl)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: homelab
+  labels:
+    profile.kratos/homelab: "true"
+    llm.kratos/access: "true"
+    searxng.kratos/access: "true"
+    postgres.kratos/access: "true"
+    qdrant.kratos/access: "true"
+    neo4j.kratos/access: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: homelab
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: api } }
+  template:
+    metadata:
+      labels: { app: api }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: api
+          image: 100.117.102.56:5000/homelab/api@sha256:67ee8f890353418819fadb3bf35f16d68f4e430c977080746b1558f1f3ab4b8e # 2026-10-12
+          # the image CMD has --reload for development, not wanted here
+          command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+          envFrom:
+            - secretRef: { name: homelab }
+          env:
+            - { name: TZ, value: Europe/Oslo }
+            - { name: HOME, value: /tmp }
+            - { name: HF_HOME, value: /cache/huggingface }
+            - { name: FILES_DIR, value: /data/files }
+            - { name: QDRANT_HOST, value: qdrant.qdrant }
+            - { name: QDRANT_PORT, value: "6333" }
+            - { name: QDRANT_COLLECTION, value: wikipedia }
+            - { name: EMBEDDING_MODEL, value: Snowflake/snowflake-arctic-embed-s }
+            - { name: EMBEDDING_DIM, value: "384" }
+            - { name: RAG_TOP_K, value: "15" }
+            - { name: RAG_NEIGHBOUR_CHUNKS, value: "true" }
+            - { name: SEARXNG_URL, value: http://searxng.searxng }
+            - { name: NEO4J_URI, value: "bolt://neo4j.neo4j:7687" }
+            - { name: NEO4J_USER, value: neo4j }
+            - { name: POSTGRES_HOST, value: postgres.postgres }
+            - { name: POSTGRES_PORT, value: "5432" }
+            - { name: POSTGRES_USER, value: homelab }
+            - { name: POSTGRES_DB, value: homelab }
+            - { name: LLAMA_SWAP_BASE_URL, value: http://llm.llm/v1 }
+            - { name: LLAMA_SWAP_DEFAULT_MODEL, value: qwen3.8-27b-q3 }
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 10
+          startupProbe:
+            httpGet: { path: /health, port: 8080 }
+            periodSeconds: 10
+            failureThreshold: 60
+          resources:
+            requests: { cpu: 200m, memory: 1Gi }
+            limits: { memory: 6Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: hf-cache, mountPath: /cache/huggingface }
+            - { name: files, mountPath: /data/files }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: hf-cache
+          hostPath: { path: /srv/hf-cache, type: Directory }
+        - name: files
+          hostPath: { path: /srv/homelab-files, type: Directory }
+        - name: tmp
+          emptyDir: {}
+---
+# LoadBalancer keeps the old address: http://kratos:8080 on the tailnet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: homelab
+spec:
+  type: LoadBalancer
+  selector: { app: api }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+# GPU experiment (~13 GB VRAM). A GPU consumer: gpuctl decides when it runs.
+#   gpuctl acquire stable-diffusion
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stable-diffusion
+  namespace: homelab
+  labels: { gpu.kratos/consumer: stable-diffusion }
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: stable-diffusion } }
+  template:
+    metadata:
+      labels: { app: stable-diffusion, gpu.kratos/consumer: stable-diffusion }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: sd
+          image: 100.117.102.56:5000/homelab/stable-diffusion@sha256:a24161722a69551b210b7d5650bd10127bfe28468560b041d175a9fe5c761195 # 2026-08-11
+          command: ["/sd-server"]
+          args:
+            - --diffusion-model
+            - /models/minimax_h3_fl2va_pruned-UD-Q2_K_XL.gguf
+            - --llm
+            - /models/qwen3vl_32b_minimax_h3-Q2_K_M.gguf
+            - --vae
+            - /models/minimax_h3_video_vae_fp16.safetensors
+            - --audio-vae
+            - /models/minimax_h3_audio_vae_fp32.safetensors
+            - --backend
+            - te=cpu
+            - --diffusion-fa
+            # required, or sd-server scans /proc and returns 500 (leejet/stable-diffusion.cpp#1599)
+            - --lora-model-dir
+            - /models/lora
+            - --hires-upscalers-dir
+            - /models/upscalers
+            - --listen-ip
+            - 0.0.0.0
+            - --listen-port
+            - "1234"
+          ports: [{ containerPort: 1234 }]
+          readinessProbe:
+            tcpSocket: { port: 1234 }
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "1", memory: 4Gi }
+            limits: { memory: 24Gi, nvidia.com/gpu-0: "1" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: models, mountPath: /models }
+            - { name: outputs, mountPath: /outputs }
+      volumes:
+        - name: models
+          hostPath: { path: /srv/stable-diffusion, type: Directory }
+        - name: outputs
+          hostPath: { path: /srv/stable-diffusion/outputs, type: DirectoryOrCreate }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stable-diffusion
+  namespace: homelab
+spec:
+  selector: { app: stable-diffusion }
+  ports: [{ port: 1234, targetPort: 1234 }]
+---
+# GPU experiment: Qwen3.8-Flash-Next with GPU/RAM/SSD-tiered MoE offload. A GPU consumer.
+# Needs unlimited memlock (set on k3s) and runs as root, as upstream's image expects.
+#   gpuctl acquire strata
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strata
+  namespace: homelab
+  labels: { gpu.kratos/consumer: strata }
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: strata } }
+  template:
+    metadata:
+      labels: { app: strata, gpu.kratos/consumer: strata }
+    spec:
+      enableServiceLinks: false
+      # the engine releases page-locked RAM on SIGTERM and needs time to do it
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: strata
+          image: 100.117.102.56:5000/homelab/strata@sha256:c0006e094f65a9678bd6654e7e6fccdf3a3462f692a739d9cc117f6b7563077b # 2026-10-09
+          env:
+            - { name: FAMILY, value: coder }
+            - { name: MODEL, value: IQ1_M }
+            - { name: CONTEXT, value: "65536" }
+            - { name: VISION, value: "no" }
+            - { name: HOST, value: 0.0.0.0 }
+            - { name: PORT, value: "8080" }
+            - name: API_KEY
+              valueFrom: { secretKeyRef: { name: homelab, key: STRATA_API_KEY } }
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            tcpSocket: { port: 8080 }
+            periodSeconds: 15
+          startupProbe:
+            tcpSocket: { port: 8080 }
+            periodSeconds: 15
+            failureThreshold: 120
+          resources:
+            requests: { cpu: "1", memory: 8Gi }
+            limits: { memory: 28Gi, nvidia.com/gpu-0: "1" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL], add: [IPC_LOCK] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          hostPath: { path: /srv/strata, type: Directory }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: strata
+  namespace: homelab
+spec:
+  selector: { app: strata }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+# Wikipedia ingest into Qdrant and Neo4j. Suspended CronJob = a stored template.
+# It uses the GPU for embeddings but is not a gpuctl consumer, so take the GPU first:
+#   gpuctl reserve ; kubectl -n homelab create job --from=cronjob/ingest ingest-$(date +%s)
+#   ... when it finishes: gpuctl unreserve
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ingest
+  namespace: homelab
+spec:
+  suspend: true
+  schedule: "0 0 1 1 *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          containers:
+            - name: ingest
+              image: 100.117.102.56:5000/homelab/ingest@sha256:4150ce2677d66b4232e37b14cffc7c0470042f66122128e416486c01065b1b01 # 2026-09-02
+              env:
+                - { name: TZ, value: Europe/Oslo }
+                - { name: HOME, value: /tmp }
+                - { name: HF_HOME, value: /cache/huggingface }
+                - { name: PYTORCH_CUDA_ALLOC_CONF, value: "expandable_segments:True" }
+                - { name: QDRANT_HOST, value: qdrant.qdrant }
+                - { name: QDRANT_PORT, value: "6333" }
+                - { name: QDRANT_COLLECTION, value: wikipedia }
+                # must match the API, or the collection becomes unsearchable
+                - { name: EMBEDDING_MODEL, value: Snowflake/snowflake-arctic-embed-s }
+                - { name: WIKI_DUMP_URL, value: "https://dumps.wikimedia.org/simplewiki/latest/simplewiki-latest-pages-articles.xml.bz2" }
+                - { name: INGEST_BATCH_SIZE, value: "256" }
+                - { name: INGEST_DEVICE, value: cuda }
+              resources:
+                requests: { cpu: "1", memory: 4Gi }
+                limits: { memory: 16Gi, nvidia.com/gpu-0: "1" }
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: { drop: [ALL] }
+              volumeMounts:
+                - { name: hf-cache, mountPath: /cache/huggingface }
+                - { name: dumps, mountPath: /dumps }
+                - { name: tmp, mountPath: /tmp }
+          volumes:
+            - name: hf-cache
+              hostPath: { path: /srv/hf-cache, type: Directory }
+            - name: dumps
+              hostPath: { path: /srv/wiki-dump, type: Directory }
+            - name: tmp
+              emptyDir: {}

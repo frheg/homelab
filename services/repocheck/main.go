@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+var pinned = regexp.MustCompile(`@sha256:[0-9a-f]{64}$`)
 
 const (
 	consumerLabel = "gpu.kratos/consumer"
@@ -87,7 +90,7 @@ func check(d doc, profiled map[string]bool) []string {
 			tpl = d.Spec.JobTemplate.Spec.Template
 		}
 		for _, c := range append(append([]container{}, tpl.Spec.InitContainers...), tpl.Spec.Containers...) {
-			if !strings.Contains(c.Image, "@sha256:") {
+			if !pinned.MatchString(strings.Fields(c.Image + " ")[0]) {
 				add("container %s: image %q is not pinned by digest", c.Name, c.Image)
 			}
 			if c.Resources.Requests == nil || c.Resources.Limits == nil || c.Resources.Limits["memory"] == nil {

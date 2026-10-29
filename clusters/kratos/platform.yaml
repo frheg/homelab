@@ -14,3 +14,11 @@ spec:
     provider: sops
     secretRef:
       name: sops-age
+  # apps wait for this. The arbiter must be running before GPU consumers appear,
+  # or a new consumer would start next to the one holding the GPU.
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: gpuctl
+      namespace: gpu-system
+  timeout: 10m

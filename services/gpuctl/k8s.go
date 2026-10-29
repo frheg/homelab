@@ -197,3 +197,20 @@ func anyHoldsGPU(pods []corev1.Pod) bool {
 	}
 	return false
 }
+
+// Replicas is the desired replica count summed over the consumer's Deployments.
+func (k *kube) Replicas(ctx context.Context, consumer string) (int32, error) {
+	ds, err := k.deployments(ctx, consumer)
+	if err != nil {
+		return 0, err
+	}
+	var n int32
+	for _, d := range ds {
+		if d.Spec.Replicas == nil {
+			n++ // Kubernetes defaults to 1
+		} else {
+			n += *d.Spec.Replicas
+		}
+	}
+	return n, nil
+}

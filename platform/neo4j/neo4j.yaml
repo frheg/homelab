@@ -1,0 +1,91 @@
+# Shared graph database (Neo4j 5 community + APOC). Data in /srv/neo4j/{data,logs}.
+# Access: label the project namespace  neo4j.kratos/access=true
+# Connect: bolt://neo4j.neo4j:7687, browser http://neo4j.neo4j:7474.
+# Memory is sized for the 7M-article Wikipedia graph: heap up to 14G plus 4G page
+# cache. Do not run it next to a big GPU model with a large RAM offload.
+# The root filesystem is writable on purpose: the image writes its config and
+# downloads the APOC plugin at start.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: neo4j
+  labels:
+    profile.kratos/homelab: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: neo4j
+  namespace: neo4j
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: neo4j } }
+  template:
+    metadata:
+      labels: { app: neo4j }
+    spec:
+      enableServiceLinks: false
+      # a large database can need minutes to recover after an unclean stop
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 7474
+        runAsGroup: 7474
+      containers:
+        - name: neo4j
+          image: 100.117.102.56:5000/mirror/neo4j@sha256:cf5d1a90e9b3c7ec0ff571cb80e057fb0569335cad859c5fb38b4296f263978b # 5-community 2026-07-16
+          envFrom:
+            - secretRef: { name: neo4j }
+          env:
+            - { name: NEO4J_PLUGINS, value: '["apoc"]' }
+            - { name: NEO4J_server_memory_heap_initial__size, value: 6G }
+            - { name: NEO4J_server_memory_heap_max__size, value: 14G }
+            - { name: NEO4J_server_memory_pagecache_size, value: 4G }
+          ports:
+            - { name: http, containerPort: 7474 }
+            - { name: bolt, containerPort: 7687 }
+          startupProbe:
+            httpGet: { path: /, port: 7474 }
+            periodSeconds: 10
+            failureThreshold: 90
+          readinessProbe:
+            httpGet: { path: /, port: 7474 }
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 500m, memory: 8Gi }
+            limits: { memory: 20Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+            - { name: logs, mountPath: /logs }
+      volumes:
+        - name: data
+          hostPath: { path: /srv/neo4j/data, type: Directory }
+        - name: logs
+          hostPath: { path: /srv/neo4j/logs, type: Directory }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neo4j
+  namespace: neo4j
+spec:
+  selector: { app: neo4j }
+  ports:
+    - { name: http, port: 7474, targetPort: 7474 }
+    - { name: bolt, port: 7687, targetPort: 7687 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-neo4j-clients
+  namespace: neo4j
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { neo4j.kratos/access: "true" } }
+      ports: [{ port: 7474 }, { port: 7687 }]

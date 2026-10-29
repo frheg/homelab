@@ -29,8 +29,8 @@ Names must be unique across the cluster.
 - gpud needs a ClusterRole: list and patch deployments, list pods, and
   get, create, update on its own ConfigMap.
 - The API has no auth. Reach it only through the tailnet and allow it by NetworkPolicy.
-- gpud scales consumers only at a switch, a reservation or on start.
-  It does not fight manual `kubectl scale` between those.
+- On every tick (5 s) gpud scales down any consumer that is not the holder, so a new
+  consumer or a manual `kubectl scale` cannot run next to it. Use `gpuctl reserve` to stop everything.
 
 ## Test
 

@@ -31,8 +31,12 @@
       };
 
       bins = builtins.mapAttrs bin goServices;
+
+      # command line tools, no container image
+      goTools = { profctl = "sha256-6RZzCcMKRaJ48KnTvzyRhJZOn8h8bwxYf+sqIm0a0JA="; };
+      tools = builtins.mapAttrs bin goTools;
     in {
-      packages.x86_64-linux = bins
+      packages.x86_64-linux = bins // tools
         // builtins.listToAttrs (map
           (n: { name = "image-${n}"; value = image n bins.${n}; })
           (builtins.attrNames goServices));

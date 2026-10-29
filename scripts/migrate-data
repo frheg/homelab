@@ -1,0 +1,24 @@
+#!/bin/sh
+# usage: sudo scripts/migrate-data
+# Moves the old HomeLab data into /srv. Same disk, so each move is an instant rename.
+# Safe to run twice: it skips what is already moved and never overwrites.
+set -eu
+src=/home/v1s/Documents/HomeLab/data
+
+move() { # name  destination  chown-owner-or-"-"
+  [ -e "$src/$1" ] || { echo "skip   $1 (already moved)"; return 0; }
+  rmdir "$2" 2>/dev/null || true # remove the empty dir that systemd-tmpfiles made
+  [ ! -e "$2" ] || { echo "ERROR: $2 exists and is not empty, not touching it" >&2; exit 1; }
+  mv "$src/$1" "$2"
+  [ "$3" = - ] || chown -R "$3" "$2"
+  echo "moved  $1 -> $2"
+}
+
+move neo4j             /srv/neo4j             -          # already owned by 7474
+move qdrant            /srv/qdrant            1000:1000
+move hf_cache          /srv/hf-cache          1000:1000
+move wiki_dump         /srv/wiki-dump         1000:1000
+move files             /srv/homelab-files     1000:1000
+move stable-diffusion  /srv/stable-diffusion  1000:1000
+move strata            /srv/strata            -          # runs as root
+echo "postgres is not moved: scripts/pg-migrate dumps it and restores into the shared server"

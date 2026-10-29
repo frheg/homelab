@@ -1,0 +1,8 @@
+# --reasoning-effort low caps thinking verbosity, it avoids the runaway-thinking failure 
+# described in the old HomeLab docs/MODEL_COMPARISON_2026-08-03.md. This is the default 
+# model of the HomeLab API.
+runtime: gpu
+description: "EXPERIMENTAL: Q3_K_XL of qwen3.8-27b, all on GPU, long context, low reasoning effort"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/Qwen3.8-27B-UD-Q3_K_XL.gguf -ngl 999 --ctx-size 98304 --ubatch-size 256 --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1 --reasoning-effort low

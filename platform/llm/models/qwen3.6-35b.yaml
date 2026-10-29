@@ -1,0 +1,7 @@
+# MoE, 40 layers, native ctx 262144. n-cpu-moe 18 plus MTP: 14.57GB VRAM, 89 tok/s (66.7 
+# before MTP). --parallel 1 is required for MTP, concurrent requests queue.
+runtime: gpu
+description: "Default: general-purpose, agentic tool use, MTP speculative decode"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL.gguf -ngl 999 --n-cpu-moe 18 --ctx-size 65536 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1

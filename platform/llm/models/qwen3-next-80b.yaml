@@ -1,0 +1,7 @@
+# Only 2 kv-heads, so context stays cheap. n-cpu-moe 32, ctx 262144: 15.1GB, about 1.2GB 
+# headroom. Slow (25-28 tok/s), use only when the context length needs it.
+runtime: gpu
+description: "Long-context specialist: 80B/3B active, full 262144 context"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/qwen3-next-80b-a3b-UD-Q2_K_XL.gguf -ngl 999 --n-cpu-moe 32 --ctx-size 262144 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0

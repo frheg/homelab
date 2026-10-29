@@ -1,0 +1,100 @@
+# Shared PostgreSQL 17 with the pgvector extension. One server, one database and
+# one role per project. Data lives in the plain directory /srv/postgres.
+# Access: label the project namespace  postgres.kratos/access=true
+# Connect: postgres.postgres:5432. New project: scripts/pg-newdb <name>.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: postgres
+  labels:
+    profile.kratos/homelab: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: postgres
+data:
+  # runs only when the data directory is empty (first start)
+  10-homelab.sh: |
+    #!/bin/sh
+    psql -v ON_ERROR_STOP=1 -U postgres -v pw="$HOMELAB_DB_PASSWORD" <<'SQL'
+    CREATE ROLE homelab LOGIN PASSWORD :'pw';
+    CREATE DATABASE homelab OWNER homelab;
+    SQL
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: postgres
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata:
+      labels: { app: postgres }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+      containers:
+        - name: postgres
+          image: 100.117.102.56:5000/mirror/pgvector@sha256:1ab15f9f756599fb129a846d7b8175e14079a633d45cd94d9d82b5401c581ac9 # pg17 2026-10-01
+          envFrom:
+            - secretRef: { name: postgres }
+          env:
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports: [{ containerPort: 5432 }]
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "postgres"] }
+            periodSeconds: 10
+          livenessProbe:
+            exec: { command: ["pg_isready", "-U", "postgres"] }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 2Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: init, mountPath: /docker-entrypoint-initdb.d, readOnly: true }
+            - { name: run, mountPath: /var/run/postgresql }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: data
+          hostPath: { path: /srv/postgres, type: Directory }
+        - name: init
+          configMap: { name: postgres-init, defaultMode: 0555 }
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: postgres
+spec:
+  selector: { app: postgres }
+  ports: [{ port: 5432, targetPort: 5432 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-clients
+  namespace: postgres
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { postgres.kratos/access: "true" } }
+      ports: [{ port: 5432 }]

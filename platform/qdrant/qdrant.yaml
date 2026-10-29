@@ -1,0 +1,81 @@
+# Shared vector database. Data lives in the plain directory /srv/qdrant.
+# Access: label the project namespace  qdrant.kratos/access=true
+# Connect: qdrant.qdrant:6333 (http), :6334 (grpc).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: qdrant
+  labels:
+    profile.kratos/homelab: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qdrant
+  namespace: qdrant
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: qdrant } }
+  template:
+    metadata:
+      labels: { app: qdrant }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: qdrant
+          image: 100.117.102.56:5000/mirror/qdrant@sha256:68944d71026e9d9e9b20c5bd471fd457b2fddbec1502fc604c0a2cc44e2cad1b # 2026-07-17
+          env:
+            - { name: QDRANT__TELEMETRY_DISABLED, value: "true" }
+            # snapshots stay inside the data directory, so they survive a restart
+            - { name: QDRANT__STORAGE__SNAPSHOTS_PATH, value: /qdrant/storage/snapshots }
+          ports:
+            - { name: http, containerPort: 6333 }
+            - { name: grpc, containerPort: 6334 }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 6333 }
+          livenessProbe:
+            httpGet: { path: /livez, port: 6333 }
+            initialDelaySeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+            limits: { memory: 8Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /qdrant/storage }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: data
+          hostPath: { path: /srv/qdrant, type: Directory }
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: qdrant
+spec:
+  selector: { app: qdrant }
+  ports:
+    - { name: http, port: 6333, targetPort: 6333 }
+    - { name: grpc, port: 6334, targetPort: 6334 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-qdrant-clients
+  namespace: qdrant
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { qdrant.kratos/access: "true" } }
+      ports: [{ port: 6333 }, { port: 6334 }]

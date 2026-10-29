@@ -1,0 +1,49 @@
+# NOT deployed: Colibri (GLM-5.2, disk-streamed MoE experts) has no model data on
+# this machine (data/colibri_models was never downloaded). To use it:
+#   1. put the model files in /srv/colibri-models (add the dir to hosts/kratos.nix)
+#   2. mirror the image: it is homelab-colibri:latest in the old Docker store
+#   3. add this file to apps/homelab/kustomization.yaml
+# The API reaches it at http://colibri:8000, so the Service keeps that name and port.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: colibri
+  namespace: homelab
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: colibri } }
+  template:
+    metadata:
+      labels: { app: colibri }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: colibri
+          image: 100.117.102.56:5000/homelab/colibri@sha256:08c163723a700852f1044cb842c6c8f26add4be24fad74feba974f5865ef0ce6 # 2026-07-25
+          workingDir: /app/c
+          command: ["python3", "openai_server.py", "--model", "/models", "--host", "0.0.0.0", "--port", "8000"]
+          env:
+            - { name: COLI_MODEL, value: /models }
+            - name: COLI_API_KEY
+              valueFrom: { secretKeyRef: { name: homelab, key: COLI_API_KEY } }
+          ports: [{ containerPort: 8000 }]
+          resources:
+            requests: { cpu: "1", memory: 4Gi }
+            limits: { memory: 24Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: models, mountPath: /models }
+      volumes:
+        - name: models
+          hostPath: { path: /srv/colibri-models, type: Directory }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: colibri
+  namespace: homelab
+spec:
+  selector: { app: colibri }
+  ports: [{ port: 8000, targetPort: 8000 }]
