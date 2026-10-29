@@ -5,5 +5,5 @@ svc=$1
 tag=${2:-$(git rev-parse --short HEAD)}
 reg=${REGISTRY:-100.117.102.56:5000}
 nix build ".#image-$svc" -o "result-$svc"
-nix shell nixpkgs#skopeo -c skopeo copy --dest-tls-verify=false "docker-archive:result-$svc" "docker://$reg/$svc:$tag"
+nix shell nixpkgs#skopeo -c skopeo --insecure-policy copy --dest-tls-verify=false "docker-archive:result-$svc" "docker://$reg/$svc:$tag"
 nix shell nixpkgs#skopeo -c skopeo inspect --tls-verify=false --format '{{.Digest}}' "docker://$reg/$svc:$tag"

@@ -9,7 +9,7 @@ data:
   services.yaml: |
     - Cluster:
         - Headlamp:
-            href: /headlamp
+            href: /headlamp/
             description: Kubernetes UI (token login)
   widgets.yaml: |
     - resources:

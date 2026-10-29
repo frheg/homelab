@@ -1,0 +1,12 @@
+# Does containerd pull from the private registry? Expect a successful pull;
+# the pod then exits 1 because gpuctl prints usage. Run by hand, then delete.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: registry-pull
+  namespace: default
+spec:
+  restartPolicy: Never
+  containers:
+    - name: gpuctl
+      image: 100.117.102.56:5000/gpuctl:8be02a5
