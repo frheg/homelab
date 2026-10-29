@@ -2,7 +2,6 @@
 # request them. The spec is generated on the host by
 # nvidia-container-toolkit-cdi-generator.service (NixOS). Only runs on nodes
 # labelled nixos-nvidia-cdi=enabled (set in modules/k3s.nix).
-# TODO: pin the image by digest once the first deploy is verified.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -26,7 +25,7 @@ spec:
         nixos-nvidia-cdi: enabled
       containers:
         - name: generic-cdi-plugin
-          image: ghcr.io/olfillasodikno/generic-cdi-plugin:main
+          image: ghcr.io/olfillasodikno/generic-cdi-plugin@sha256:5399b02c75e7e1ef2f9f4d2ab75e05cfa66fac6e30bd2a8ea1045f8c02bda4ec # was :main
           command:
             - /generic-cdi-plugin
             - /var/run/cdi/nvidia-container-toolkit.json

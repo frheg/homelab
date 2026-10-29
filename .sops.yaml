@@ -1,0 +1,10 @@
+# Recipients: the user's editing key and the cluster key Flux decrypts with.
+# Name encrypted files *.sops.yaml. Only data/stringData values are encrypted.
+keys:
+  - &v1s age1ahazhllat0dkd6qvdt8yp8kjuc65nnleqm2hzrgu45qpd9tqa9kqfkg9y3
+  - &cluster age10g6fcjfzdzrj98ct8sr8kuhvtfrm5wfj6smgkfdrylgacjhn3vmqukrxys
+creation_rules:
+  - path_regex: .*\.sops\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    key_groups:
+      - age: [*v1s, *cluster]
