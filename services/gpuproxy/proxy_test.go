@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -210,5 +211,77 @@ func TestHTTPAcquirerMapsStatuses(t *testing.T) {
 		if gotBody["name"] != "llm" || gotBody["ttl"] != "2m0s" {
 			t.Errorf("status %d: request body = %v", c.status, gotBody)
 		}
+	}
+}
+
+// hookAcq lets a test change the world when the arbiter is asked.
+type hookAcq struct {
+	calls atomic.Int64
+	hook  func(n int64)
+}
+
+func (h *hookAcq) Acquire(ctx context.Context, c string, ttl time.Duration) error {
+	n := h.calls.Add(1)
+	if h.hook != nil {
+		h.hook(n)
+	}
+	return nil
+}
+
+func TestStaleLeaseIsRecoveredWhenTheBackendIsGone(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := ln.Addr().String()
+	serve := func(l net.Listener) *http.Server {
+		s := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "woke") })}
+		go s.Serve(l)
+		return s
+	}
+	srv := serve(ln)
+	var current atomic.Pointer[http.Server]
+	current.Store(srv)
+
+	acq := &hookAcq{}
+	acq.hook = func(n int64) {
+		if n == 2 { // the arbiter brings the consumer back: the backend listens again
+			l, err := net.Listen("tcp", addr)
+			if err != nil {
+				t.Errorf("relisten: %v", err)
+				return
+			}
+			current.Store(serve(l))
+		}
+	}
+	p, err := New("llm", "http://"+addr, acq, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := get(p, "/"); w.Code != 200 || acq.calls.Load() != 1 {
+		t.Fatalf("setup: code=%d acquires=%d", w.Code, acq.calls.Load())
+	}
+	// someone else takes the GPU: our backend disappears while the lease still looks valid
+	srv.Close()
+	w := get(p, "/")
+	if w.Code != 200 || w.Body.String() != "woke" {
+		t.Fatalf("stale lease not recovered: code=%d body=%q", w.Code, w.Body.String())
+	}
+	if acq.calls.Load() != 2 {
+		t.Fatalf("acquires = %d, want 2 (the retry asked again)", acq.calls.Load())
+	}
+	current.Load().Close()
+}
+
+func TestRefusedDuringRetryIs503(t *testing.T) {
+	ln, _ := net.Listen("tcp", "127.0.0.1:0")
+	addr := ln.Addr().String()
+	ln.Close() // nothing listens: every dial fails
+	acq := &fakeAcq{err: &RefusedError{Msg: "gpu reserved by v1s until released"}}
+	p, _ := New("llm", "http://"+addr, acq, time.Minute)
+	p.validUntil = time.Now().Add(time.Hour) // pretend we hold a lease
+	w := get(p, "/")
+	if w.Code != 503 || w.Header().Get("Retry-After") == "" {
+		t.Fatalf("code=%d retry=%q body=%q", w.Code, w.Header().Get("Retry-After"), w.Body.String())
 	}
 }

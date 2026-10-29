@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -48,11 +49,19 @@ func New(consumer, backendURL string, acq Acquirer, ttl time.Duration) (*Proxy, 
 	orig := rp.Director
 	rp.Director = func(r *http.Request) { orig(r); r.Host = u.Host }
 	rp.FlushInterval = -1 // stream tokens as they come
+	p := &Proxy{consumer: consumer, acq: acq, ttl: ttl, backend: rp, now: time.Now}
+	rp.Transport = retryTransport{p: p, base: http.DefaultTransport}
 	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		var refused *RefusedError
+		if errors.As(err, &refused) {
+			w.Header().Set("Retry-After", "30")
+			http.Error(w, refused.Msg, http.StatusServiceUnavailable)
+			return
+		}
 		log.Printf("backend error: %v", err)
 		http.Error(w, "backend error: "+err.Error(), http.StatusBadGateway)
 	}
-	return &Proxy{consumer: consumer, acq: acq, ttl: ttl, backend: rp, now: time.Now}, nil
+	return p, nil
 }
 
 // ensure holds the lease. Callers that arrive during an acquire wait for it.
@@ -143,4 +152,33 @@ func (h httpAcquirer) Acquire(ctx context.Context, consumer string, ttl time.Dur
 		return &RefusedError{Msg: e.Error}
 	}
 	return fmt.Errorf("%s", e.Error)
+}
+
+// invalidate forgets the cached lease, e.g. because someone else took the GPU.
+func (p *Proxy) invalidate() {
+	p.mu.Lock()
+	p.validUntil = time.Time{}
+	p.mu.Unlock()
+}
+
+// retryTransport covers the case where our cached lease is stale: another consumer
+// took the GPU and the backend was stopped. A failed dial sends nothing, so it is
+// safe to ask the arbiter again and replay the request once.
+type retryTransport struct {
+	p    *Proxy
+	base http.RoundTripper
+}
+
+func (t retryTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(r)
+	var op *net.OpError
+	if err == nil || !errors.As(err, &op) || op.Op != "dial" {
+		return resp, err
+	}
+	log.Printf("%s unreachable, asking for the GPU again: %v", t.p.consumer, err)
+	t.p.invalidate()
+	if err := t.p.ensure(r.Context()); err != nil {
+		return nil, err
+	}
+	return t.base.RoundTrip(r)
 }

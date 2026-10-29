@@ -309,7 +309,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: gpuproxy
-          image: 100.117.102.56:5000/gpuproxy@sha256:874f9e3f22d3e41f9de5597c81f57ff5d037ff92ad7da131e7f420a3f30ef7e5
+          image: 100.117.102.56:5000/gpuproxy@sha256:bd80bf9468a16c6c12cc95b2c7253a48423f545f4a3a98691101e807b999914e
           args: ["-consumer", "strata", "-backend", "http://strata-backend:8080", "-gpuctl", "http://gpuctl.gpu-system"]
           ports: [{ containerPort: 8080 }]
           readinessProbe:
@@ -350,7 +350,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: gpuproxy
-          image: 100.117.102.56:5000/gpuproxy@sha256:874f9e3f22d3e41f9de5597c81f57ff5d037ff92ad7da131e7f420a3f30ef7e5
+          image: 100.117.102.56:5000/gpuproxy@sha256:bd80bf9468a16c6c12cc95b2c7253a48423f545f4a3a98691101e807b999914e
           args: ["-consumer", "stable-diffusion", "-backend", "http://stable-diffusion-backend:1234", "-gpuctl", "http://gpuctl.gpu-system"]
           ports: [{ containerPort: 8080 }]
           readinessProbe:
