@@ -7,12 +7,12 @@ groups:
         labels: { severity: critical }
         annotations: { summary: "Node {{ $labels.node }} is not Ready", description: "Kubernetes reports the node as not Ready." }
       - alert: PodCrashLooping
-        expr: increase(kube_pod_container_status_restarts_total[30m]) > 3
+        expr: changes(kube_pod_container_status_restarts_total[30m]) > 3
         for: 5m
         labels: { severity: warning }
-        annotations: { summary: "{{ $labels.namespace }}/{{ $labels.pod }} keeps restarting", description: "Container {{ $labels.container }} restarted {{ $value | humanize }} times in 30 minutes." }
+        annotations: { summary: "{{ $labels.namespace }}/{{ $labels.pod }} keeps restarting", description: "Container {{ $labels.container }} restarted {{ $value }} times in 30 minutes." }
       - alert: ContainerOOMKilled
-        expr: (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1) and on (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[15m]) > 0)
+        expr: (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1) and on (namespace, pod, container) (changes(kube_pod_container_status_restarts_total[15m]) > 0)
         labels: { severity: warning }
         annotations: { summary: "{{ $labels.namespace }}/{{ $labels.pod }} was OOM killed", description: "Container {{ $labels.container }} hit its memory limit." }
       # GPU consumers are scaled to 0 by gpuctl, so only Deployments that want pods count.

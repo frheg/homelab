@@ -2,7 +2,8 @@
 # webhook into a push. The token (write only, this topic) comes from the ntfy-auth Secret.
 route:
   receiver: ntfy
-  group_by: [alertname]
+  # one push per affected object: ntfy refuses a message over 4 KB, and one list of 17 is useless on a phone
+  group_by: [alertname, namespace, pod, deployment, daemonset, name, node, instance, job, kind, persistentvolumeclaim, task]
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 12h
