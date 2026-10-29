@@ -1,0 +1,109 @@
+# Dummy consumers for the gpuctl end-to-end test (go test -tags e2e).
+# Four labelled Deployments off by default. "stuck" ignores SIGTERM on purpose.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpuctl-test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thesis
+  namespace: gpuctl-test
+  labels: { gpu.kratos/consumer: thesis }
+spec:
+  replicas: 0
+  selector: { matchLabels: { app: thesis } }
+  template:
+    metadata:
+      labels: { app: thesis, gpu.kratos/consumer: thesis }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 65534 }
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          resources:
+            requests: { cpu: 1m, memory: 1Mi }
+            limits: { memory: 16Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: homelab
+  namespace: gpuctl-test
+  labels: { gpu.kratos/consumer: homelab }
+spec:
+  replicas: 0
+  selector: { matchLabels: { app: homelab } }
+  template:
+    metadata:
+      labels: { app: homelab, gpu.kratos/consumer: homelab }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 65534 }
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          resources:
+            requests: { cpu: 1m, memory: 1Mi }
+            limits: { memory: 16Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bench
+  namespace: gpuctl-test
+  labels: { gpu.kratos/consumer: bench }
+spec:
+  replicas: 0
+  selector: { matchLabels: { app: bench } }
+  template:
+    metadata:
+      labels: { app: bench, gpu.kratos/consumer: bench }
+    spec:
+      securityContext: { runAsNonRoot: true, runAsUser: 65534 }
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause:3.10
+          resources:
+            requests: { cpu: 1m, memory: 1Mi }
+            limits: { memory: 16Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stuck
+  namespace: gpuctl-test
+  labels: { gpu.kratos/consumer: stuck }
+spec:
+  replicas: 0
+  selector: { matchLabels: { app: stuck } }
+  template:
+    metadata:
+      labels: { app: stuck, gpu.kratos/consumer: stuck }
+    spec:
+      # takes 5 minutes to stop, so its pod outlives a scale to 0
+      terminationGracePeriodSeconds: 300
+      securityContext: { runAsNonRoot: true, runAsUser: 65534 }
+      containers:
+        - name: sleeper
+          image: busybox:1.37.0
+          command: ["sh", "-c", "trap '' TERM; while true; do sleep 1; done"]
+          resources:
+            requests: { cpu: 1m, memory: 1Mi }
+            limits: { memory: 16Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }

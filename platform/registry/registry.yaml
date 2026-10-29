@@ -1,0 +1,78 @@
+# Private image registry for the cluster. Tailnet only, plain HTTP, no auth.
+# Images: 100.117.102.56:5000/<name>:<tag>. Nodes pull via registries.yaml (NixOS).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: registry
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-data
+  namespace: registry
+  annotations:
+    # local-path deletes the data with the claim, so Flux must never prune it
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: registry
+  namespace: registry
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: registry } }
+  template:
+    metadata:
+      labels: { app: registry }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+      containers:
+        - name: registry
+          image: ghcr.io/distribution/distribution@sha256:d106962e6fe3fa69c178cec77eeeee5edb626b8df6535b7bd6b95e658a0a5ca9 # 3.1.2
+          env:
+            - { name: REGISTRY_HTTP_ADDR, value: ":5000" }
+            - { name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY, value: /var/lib/registry }
+          ports: [{ containerPort: 5000 }]
+          readinessProbe:
+            httpGet: { path: /v2/, port: 5000 }
+          livenessProbe:
+            httpGet: { path: /v2/, port: 5000 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/registry }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: registry-data }
+        - name: tmp
+          emptyDir: {}
+---
+# LoadBalancer makes k3s bind port 5000 on the node, so containerd and
+# other tailnet machines reach 100.117.102.56:5000.
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+  namespace: registry
+spec:
+  type: LoadBalancer
+  selector: { app: registry }
+  ports: [{ port: 5000, targetPort: 5000 }]

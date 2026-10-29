@@ -1,0 +1,187 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+)
+
+// Deployments and their pods carry this label. The value is the consumer name.
+const consumerLabel = "gpu.kratos/consumer"
+
+const pollEvery = time.Second
+
+// kube implements Cluster and Store on a real cluster.
+type kube struct {
+	cs   kubernetes.Interface
+	ns   string // namespace of the state ConfigMap
+	name string // state ConfigMap name
+}
+
+func newKube(ns, name string) (*kube, error) {
+	cfg, err := rest.InClusterConfig()
+	if err != nil {
+		// outside a cluster, use the default kubeconfig
+		rules := clientcmd.NewDefaultClientConfigLoadingRules()
+		cfg, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, &clientcmd.ConfigOverrides{}).ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("kubeconfig: %w", err)
+		}
+	}
+	return newKubeFrom(cfg, ns, name)
+}
+
+func newKubeFrom(cfg *rest.Config, ns, name string) (*kube, error) {
+	cs, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &kube{cs: cs, ns: ns, name: name}, nil
+}
+
+func (k *kube) deployments(ctx context.Context, consumer string) ([]appsv1.Deployment, error) {
+	l, err := k.cs.AppsV1().Deployments(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+		LabelSelector: consumerLabel + "=" + consumer,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return l.Items, nil
+}
+
+func (k *kube) Consumers(ctx context.Context) ([]string, error) {
+	l, err := k.cs.AppsV1().Deployments(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+		LabelSelector: consumerLabel,
+	})
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	for _, d := range l.Items {
+		seen[d.Labels[consumerLabel]] = true
+	}
+	out := make([]string, 0, len(seen))
+	for c := range seen {
+		out = append(out, c)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+func (k *kube) Scale(ctx context.Context, consumer string, replicas int32) error {
+	ds, err := k.deployments(ctx, consumer)
+	if err != nil {
+		return err
+	}
+	patch := []byte(fmt.Sprintf(`{"spec":{"replicas":%d}}`, replicas))
+	for _, d := range ds {
+		_, err := k.cs.AppsV1().Deployments(d.Namespace).Patch(ctx, d.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+		if err != nil {
+			return fmt.Errorf("scale %s/%s: %w", d.Namespace, d.Name, err)
+		}
+	}
+	return nil
+}
+
+func (k *kube) WaitGone(ctx context.Context, consumer string) error {
+	return poll(ctx, func() (bool, error) {
+		l, err := k.cs.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+			LabelSelector: consumerLabel + "=" + consumer,
+		})
+		if err != nil {
+			return false, err
+		}
+		return len(l.Items) == 0, nil
+	})
+}
+
+func (k *kube) WaitReady(ctx context.Context, consumer string) error {
+	return poll(ctx, func() (bool, error) {
+		ds, err := k.deployments(ctx, consumer)
+		if err != nil {
+			return false, err
+		}
+		if len(ds) == 0 {
+			return false, fmt.Errorf("no deployment for %s", consumer)
+		}
+		for _, d := range ds {
+			want := int32(1)
+			if d.Spec.Replicas != nil {
+				want = *d.Spec.Replicas
+			}
+			if d.Status.ObservedGeneration < d.Generation ||
+				d.Status.ReadyReplicas < want || d.Status.Replicas != d.Status.ReadyReplicas {
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+}
+
+// poll runs f every pollEvery until it says done, errors, or ctx ends.
+func poll(ctx context.Context, f func() (bool, error)) error {
+	for {
+		done, err := f()
+		if err != nil {
+			return err
+		}
+		if done {
+			return nil
+		}
+		select {
+		case <-time.After(pollEvery):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (k *kube) Load(ctx context.Context) (State, error) {
+	cm, err := k.cs.CoreV1().ConfigMaps(k.ns).Get(ctx, k.name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return State{}, nil
+	}
+	if err != nil {
+		return State{}, err
+	}
+	var s State
+	if raw := cm.Data["state"]; raw != "" {
+		if err := json.Unmarshal([]byte(raw), &s); err != nil {
+			return State{}, fmt.Errorf("parse state: %w", err)
+		}
+	}
+	return s, nil
+}
+
+func (k *kube) Save(ctx context.Context, s State) error {
+	raw, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	cms := k.cs.CoreV1().ConfigMaps(k.ns)
+	cm, err := cms.Get(ctx, k.name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		_, err = cms.Create(ctx, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: k.name, Namespace: k.ns},
+			Data:       map[string]string{"state": string(raw)},
+		}, metav1.CreateOptions{})
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	cm.Data = map[string]string{"state": string(raw)}
+	_, err = cms.Update(ctx, cm, metav1.UpdateOptions{})
+	return err
+}
