@@ -1,0 +1,93 @@
+# Self-hosted meta search. Shared: any project may use it once its namespace has
+#   searxng.kratos/access=true     (kubectl label ns <name> searxng.kratos/access=true)
+# Call it as http://searxng.searxng/search?q=...&format=json
+# Stateless. Start and stop with profctl (replicas is not set here on purpose).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: searxng
+  labels:
+    profile.kratos/homelab: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: searxng
+  namespace: searxng
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: searxng } }
+  template:
+    metadata:
+      labels: { app: searxng }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 977
+        runAsGroup: 977
+      # the image writes into /etc/searxng at start, so config lives on a writable volume
+      initContainers:
+        - name: copy-config
+          image: searxng/searxng@sha256:800a5e3757df04f59e6bd6c622f15de2edbfa47f5591c5b82d4a8ff3b938a845 # 2026.7.18
+          command: ["sh", "-c", "cp /config-src/settings.yml /etc/searxng/settings.yml"]
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: config-src, mountPath: /config-src }
+            - { name: config, mountPath: /etc/searxng }
+      containers:
+        - name: searxng
+          image: searxng/searxng@sha256:800a5e3757df04f59e6bd6c622f15de2edbfa47f5591c5b82d4a8ff3b938a845 # 2026.7.18
+          envFrom:
+            - secretRef: { name: searxng }
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: config, mountPath: /etc/searxng }
+            - { name: cache, mountPath: /var/cache/searxng }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: config-src
+          configMap: { name: searxng-config }
+        - name: config
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: searxng
+  namespace: searxng
+spec:
+  selector: { app: searxng }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-searxng-clients
+  namespace: searxng
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { searxng.kratos/access: "true" } }
+      ports: [{ port: 8080 }]

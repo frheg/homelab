@@ -5,4 +5,5 @@ resources:
   - gpuctl
   - llm
   - registry
+  - searxng
   - ui

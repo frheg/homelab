@@ -143,3 +143,21 @@ func TestMultiDocAndEmptyDocs(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestProfileNamespaceMustNotSetReplicas(t *testing.T) {
+	ns := "kind: Namespace\nmetadata: {name: p, labels: {profile.kratos/homelab: 'true'}}\n---\n"
+	dep := func(n, extra string) string {
+		return ns + "kind: Deployment\nmetadata: {name: a, namespace: " + n + "}\nspec:\n" + extra +
+			"  template:\n    spec:\n      containers:\n        - name: c\n          image: r/x@" + digest +
+			"\n          resources: {requests: {cpu: 1m}, limits: {memory: 8Mi}}\n"
+	}
+	if got := violations(t, dep("p", "  replicas: 1\n")); !strings.Contains(got, "managed by profctl") {
+		t.Errorf("replicas in a profile namespace not flagged: %q", got)
+	}
+	if got := violations(t, dep("p", "")); got != "" {
+		t.Errorf("clean profile workload flagged: %s", got)
+	}
+	if got := violations(t, dep("other", "  replicas: 1\n")); got != "" {
+		t.Errorf("replicas outside a profile namespace flagged: %s", got)
+	}
+}

@@ -74,8 +74,9 @@ func (d doc) id() string {
 	return fmt.Sprintf("%s %s", d.Kind, d.Metadata.Name)
 }
 
-// check returns one line per violation.
-func check(d doc) []string {
+// check returns one line per violation. profiled holds the namespaces that profctl
+// manages (they carry a profile.kratos/* label).
+func check(d doc, profiled map[string]bool) []string {
 	var out []string
 	add := func(format string, a ...any) { out = append(out, d.id()+": "+fmt.Sprintf(format, a...)) }
 
@@ -92,6 +93,9 @@ func check(d doc) []string {
 			if c.Resources.Requests == nil || c.Resources.Limits == nil || c.Resources.Limits["memory"] == nil {
 				add("container %s: needs resource requests and a memory limit", c.Name)
 			}
+		}
+		if profiled[d.Metadata.Namespace] && d.Spec.Replicas != nil && d.Metadata.Labels[consumerLabel] == "" {
+			add("namespace is managed by profctl, do not set replicas (Flux would undo stop and start)")
 		}
 		if lbl, ok := d.Metadata.Labels[consumerLabel]; ok {
 			if d.Spec.Replicas != nil {
@@ -127,25 +131,39 @@ func check(d doc) []string {
 
 func run(r io.Reader) ([]string, error) {
 	dec := yaml.NewDecoder(r)
-	var all []string
-	seen := 0
+	var docs []doc
 	for {
 		var d doc
 		err := dec.Decode(&d)
 		if errors.Is(err, io.EOF) {
-			if seen == 0 {
-				return all, errors.New("no manifests on stdin, refusing to pass")
-			}
-			return all, nil
+			break
 		}
 		if err != nil {
-			return all, fmt.Errorf("parse manifests: %w", err)
+			return nil, fmt.Errorf("parse manifests: %w", err)
 		}
 		if d.Kind != "" {
-			seen++
-			all = append(all, check(d)...)
+			docs = append(docs, d)
 		}
 	}
+	if len(docs) == 0 {
+		return nil, errors.New("no manifests on stdin, refusing to pass")
+	}
+	profiled := map[string]bool{}
+	for _, d := range docs {
+		if d.Kind != "Namespace" {
+			continue
+		}
+		for k := range d.Metadata.Labels {
+			if strings.HasPrefix(k, "profile.kratos/") {
+				profiled[d.Metadata.Name] = true
+			}
+		}
+	}
+	var all []string
+	for _, d := range docs {
+		all = append(all, check(d, profiled)...)
+	}
+	return all, nil
 }
 
 func main() {

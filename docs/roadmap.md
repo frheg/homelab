@@ -55,3 +55,22 @@ from the platform.
 4. gpuproxy, profctl, UI buttons.
 5. HomeLab migration, service by service.
 6. New thesislab.
+
+## LLM models: own config each, GPU and CPU, VRAM and RAM
+
+Requirement (2026-10-29): every model has its own config and can run on the GPU,
+on the CPU, or split across VRAM and system RAM.
+
+Design:
+- One file per model in platform/llm/models/<name>.yaml: the llama-server flags,
+  `runtime: gpu | cpu`, ttl, description. No shared flags.
+- A small Go tool merges models/*.yaml into two llama-swap configs, so the gateway
+  files are generated and CI checks they are up to date.
+- `llm` (GPU): gpuctl consumer, as today. Models use `-ngl` and `--n-cpu-moe` to
+  split between VRAM and RAM. Stops when you reserve the GPU.
+- `llm-cpu` (CPU only): the llama-swap `cpu` image, no GPU claim, not a consumer.
+  Keeps working while the GPU is reserved or held by another consumer.
+  Memory limit set so it cannot starve the host.
+- Add a model: drop one file in models/, run the generator, commit.
+- Models from the old HomeLab to bring over: laguna-xs-2.1, nemotron-3.5-lightning,
+  qwen3.8-27b (Q4_K_M), plus the three already in the gateway.
