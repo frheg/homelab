@@ -67,7 +67,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: llama-swap
-          image: ghcr.io/mostlygeek/llama-swap@sha256:ef4fea63ff88e4f9e13427f005a56457b2d341b68b7a09b452b07514e63cff26 # cuda
+          image: 100.117.102.56:5000/llama-swap@sha256:0b60f4e4fe74cc22008b97026701dd6651f17370e9ee4084c1e906565ac348c4 # upstream :cuda of 2026-08-24, mirrored
           args: ["-config", "/app/config.yaml", "-listen", ":8080"]
           env:
             - { name: HOME, value: /tmp }
