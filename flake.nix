@@ -9,7 +9,7 @@
 
       # One Go service per directory in services/. Add a name here to get
       # .#<name> (binary) and .#image-<name> (container image).
-      goServices = { gpuctl = "sha256-44Fhzb370I/fDKT3NgE5QwmXvOSyYoLeHCq5Y3xD1XM="; };
+      goServices = { gpuctl = "sha256-44Fhzb370I/fDKT3NgE5QwmXvOSyYoLeHCq5Y3xD1XM="; gpuproxy = null; };
 
       bin = name: vendorHash: pkgs.buildGoModule {
         pname = name;

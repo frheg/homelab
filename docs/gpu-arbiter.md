@@ -57,12 +57,17 @@ HTTP on the same data: `GET /status`, `POST /acquire`, `POST /release`,
 Plain text output, `--json` for machines. Exit 0 ok, 1 error, 2 refused.
 One log line per event on stderr.
 
-## Proxy (gpuproxy)
+## Proxy (gpuproxy), built
+
+Implemented in services/gpuproxy. One proxy per consumer, in the consumer namespace,
+so the access labels still decide who can call it. The client-facing Service (`llm`,
+`strata`, `stable-diffusion`) points at the proxy, the real one is `<name>-backend`.
+It needs `gpu.kratos/access=true` on its namespace to reach gpuctl.
 
 The front door for HTTP consumers. Clients call a normal URL, not the arbiter.
 It is a separate Go program built on `httputil.ReverseProxy`.
 
-- Routes by host to a consumer, for example `llm.gpu` or `homelab.gpu`.
+- One proxy serves one consumer (no host routing): it is told its consumer and backend by flags.
 - On a request it calls `acquire` for that consumer, and holds the request until
   the consumer is ready, up to `switch_timeout`. After that it returns 503 with
   `Retry-After`.
@@ -87,3 +92,9 @@ A batch job holds the lease itself and calls `release` when done.
 2. Should a profile be able to include GPU consumers, or only gpud touches them?
    Suggest only gpud.
 3. Order of work: gpud first (small, testable alone), then gpuproxy, then profctl.
+
+## Start timeout
+
+A consumer that loads tens of GB at start (Strata) needs more than the global
+`switch-timeout`. Put `gpu.kratos/start-timeout: 25m` on its Deployment. The arbiter
+waits that long for it to become ready, never less than the global limit.

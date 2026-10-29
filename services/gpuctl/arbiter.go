@@ -12,9 +12,10 @@ import (
 type Cluster interface {
 	Consumers(ctx context.Context) ([]string, error)
 	Scale(ctx context.Context, consumer string, replicas int32) error
-	Replicas(ctx context.Context, consumer string) (int32, error) // desired, summed over its Deployments
-	WaitGone(ctx context.Context, consumer string) error          // no pods left, even terminating
-	WaitReady(ctx context.Context, consumer string) error         // all pods ready
+	Replicas(ctx context.Context, consumer string) (int32, error)             // desired, summed over its Deployments
+	StartTimeout(ctx context.Context, consumer string) (time.Duration, error) // from the gpu.kratos/start-timeout annotation, 0 if unset
+	WaitGone(ctx context.Context, consumer string) error                      // no pods left, even terminating
+	WaitReady(ctx context.Context, consumer string) error                     // all pods ready
 }
 
 type Config struct {
@@ -219,19 +220,30 @@ func (a *Arbiter) switchTo(ctx context.Context, name string, ttl time.Duration) 
 // bring stops every other consumer, waits until their pods are gone, then
 // starts name. The GPU is never shared, even when an old pod is stuck.
 func (a *Arbiter) bring(ctx context.Context, name string) error {
-	ctx, cancel := context.WithTimeout(ctx, a.cfg.SwitchTimeout)
-	defer cancel()
 	if err := a.stopOthers(ctx, name); err != nil {
 		return err
 	}
 	if err := a.cl.Scale(ctx, name, 1); err != nil {
 		return fmt.Errorf("start %s: %w", name, err)
 	}
-	if err := a.cl.WaitReady(ctx, name); err != nil {
+	rctx, cancel := context.WithTimeout(ctx, a.readyTimeout(ctx, name))
+	defer cancel()
+	if err := a.cl.WaitReady(rctx, name); err != nil {
 		_ = a.cl.Scale(context.WithoutCancel(ctx), name, 0)
 		return fmt.Errorf("wait ready %s: %w", name, err)
 	}
 	return nil
+}
+
+// readyTimeout is how long a consumer may take to become ready: its own
+// gpu.kratos/start-timeout if longer than the global limit, else the global limit.
+// Engines that load tens of GB at start need minutes, llama-swap needs seconds.
+func (a *Arbiter) readyTimeout(ctx context.Context, name string) time.Duration {
+	d, err := a.cl.StartTimeout(ctx, name)
+	if err != nil || d < a.cfg.SwitchTimeout {
+		return a.cfg.SwitchTimeout
+	}
+	return d
 }
 
 func (a *Arbiter) stopOthers(ctx context.Context, keep string) error {

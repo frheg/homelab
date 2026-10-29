@@ -9,10 +9,12 @@ import (
 )
 
 type fakeCluster struct {
-	replicas map[string]int32
-	ops      []string
-	stuck    map[string]bool // WaitGone fails
-	notReady map[string]bool // WaitReady fails
+	startTimeout map[string]time.Duration
+	readyAfter   time.Duration // WaitReady takes this long
+	replicas     map[string]int32
+	ops          []string
+	stuck        map[string]bool // WaitGone fails
+	notReady     map[string]bool // WaitReady fails
 }
 
 func newFake(names ...string) *fakeCluster {
@@ -39,6 +41,10 @@ func (f *fakeCluster) Scale(_ context.Context, c string, n int32) error {
 	return nil
 }
 
+func (f *fakeCluster) StartTimeout(_ context.Context, c string) (time.Duration, error) {
+	return f.startTimeout[c], nil
+}
+
 func (f *fakeCluster) Replicas(_ context.Context, c string) (int32, error) { return f.replicas[c], nil }
 
 func (f *fakeCluster) WaitGone(_ context.Context, c string) error {
@@ -48,7 +54,14 @@ func (f *fakeCluster) WaitGone(_ context.Context, c string) error {
 	return nil
 }
 
-func (f *fakeCluster) WaitReady(_ context.Context, c string) error {
+func (f *fakeCluster) WaitReady(ctx context.Context, c string) error {
+	if f.readyAfter > 0 {
+		select {
+		case <-time.After(f.readyAfter):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	if f.notReady[c] {
 		return errors.New("not ready")
 	}
@@ -405,5 +418,37 @@ func TestTickKeepsEverythingOffWhileReserved(t *testing.T) {
 	a.Tick(ctx)
 	if len(running(f)) != 0 {
 		t.Fatalf("running = %v, want none while reserved", running(f))
+	}
+}
+
+func TestSlowConsumerGetsItsOwnStartTimeout(t *testing.T) {
+	f := newFake("thesis", "homelab")
+	f.readyAfter = 300 * time.Millisecond
+	f.startTimeout = map[string]time.Duration{"homelab": 2 * time.Second}
+	c := cfg
+	c.SwitchTimeout = 100 * time.Millisecond
+	a := NewArbiter(c, f, &memStore{})
+	ck := &clock{t: time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)}
+	a.now = ck.now
+	ctx := context.Background()
+	a.Tick(ctx) // thesis, ready after 300ms is too slow for the global limit
+	if a.Status().Holder != "" {
+		t.Fatalf("a consumer without the annotation must time out, holder = %q", a.Status().Holder)
+	}
+	ck.add(time.Minute)
+	if _, err := a.Acquire(ctx, "homelab", time.Minute); err != nil {
+		t.Fatalf("a consumer with start-timeout 2s must be given the time: %v", err)
+	}
+	if a.Status().Holder != "homelab" {
+		t.Fatalf("holder = %q", a.Status().Holder)
+	}
+}
+
+func TestStartTimeoutNeverShortensTheGlobalLimit(t *testing.T) {
+	f := newFake("thesis", "bench")
+	f.startTimeout = map[string]time.Duration{"bench": time.Millisecond}
+	a := NewArbiter(cfg, f, &memStore{})
+	if got := a.readyTimeout(context.Background(), "bench"); got != cfg.SwitchTimeout {
+		t.Fatalf("readyTimeout = %v, want %v", got, cfg.SwitchTimeout)
 	}
 }

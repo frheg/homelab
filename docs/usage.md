@@ -105,3 +105,10 @@ Each is reached by name once the project namespace has the access label:
     qdrant.qdrant     (qdrant.kratos/access=true)
     neo4j.neo4j       (neo4j.kratos/access=true)
     llm.llm, llm-cpu.llm (llm.kratos/access=true)
+
+## Wake on request
+
+Calling `http://llm.llm`, `http://strata:8080` or `http://stable-diffusion:1234` takes
+the GPU for that consumer by itself (gpuproxy asks gpuctl), then forwards the request.
+If you reserved the GPU or another consumer has an active lease, the call returns 503
+with `Retry-After: 30` and the reason in the body.

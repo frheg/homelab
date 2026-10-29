@@ -26,7 +26,7 @@ func call(addr, method, path string, body any) ([]byte, error) {
 		return nil, err
 	}
 	// acquire blocks while the GPU switches
-	c := &http.Client{Timeout: 10 * time.Minute}
+	c := &http.Client{Timeout: 30 * time.Minute}
 	resp, err := c.Do(req)
 	if err != nil {
 		return nil, err

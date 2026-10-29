@@ -71,7 +71,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: gpuctl
-          image: 100.117.102.56:5000/gpuctl@sha256:d2b5ce3b461d79fb757869c536a2b276ad57d43166444d858a8ff49d9f97b070 # enforces one holder on every tick
+          image: 100.117.102.56:5000/gpuctl@sha256:9814b18540345b586661846a918eecbd35a28e76fc63a737fe625b886d166a90 # per-consumer start timeout
           args: ["serve", "-default", "llm", "-listen", ":8080"]
           env:
             - name: POD_NAMESPACE

@@ -7,6 +7,7 @@ kind: Namespace
 metadata:
   name: homelab
   labels:
+    gpu.kratos/access: "true" # the gpuproxies call the arbiter
     profile.kratos/homelab: "true"
     llm.kratos/access: "true"
     searxng.kratos/access: "true"
@@ -164,7 +165,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: stable-diffusion
+  name: stable-diffusion-backend
   namespace: homelab
 spec:
   selector: { app: stable-diffusion }
@@ -179,6 +180,9 @@ metadata:
   name: strata
   namespace: homelab
   labels: { gpu.kratos/consumer: strata }
+  annotations:
+    # the engine loads tens of GB at start, far beyond the 120 s default
+    gpu.kratos/start-timeout: 25m
 spec:
   strategy: { type: Recreate }
   selector: { matchLabels: { app: strata } }
@@ -224,7 +228,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: strata
+  name: strata-backend
   namespace: homelab
 spec:
   selector: { app: strata }
@@ -285,3 +289,85 @@ spec:
               hostPath: { path: /srv/wiki-dump, type: Directory }
             - name: tmp
               emptyDir: {}
+---
+# Front door of the strata GPU consumer: asks gpuctl for the GPU, then forwards. Clients keep
+# calling the Service "strata", which now points here, and the real one is "strata-backend".
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpuproxy-strata
+  namespace: homelab
+spec:
+  selector: { matchLabels: { app: gpuproxy-strata } }
+  template:
+    metadata:
+      labels: { app: gpuproxy-strata }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: gpuproxy
+          image: 100.117.102.56:5000/gpuproxy@sha256:874f9e3f22d3e41f9de5597c81f57ff5d037ff92ad7da131e7f420a3f30ef7e5
+          args: ["-consumer", "strata", "-backend", "http://strata-backend:8080", "-gpuctl", "http://gpuctl.gpu-system"]
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /_gpuproxy/healthz, port: 8080 }
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: strata
+  namespace: homelab
+spec:
+  selector: { app: gpuproxy-strata }
+  ports: [{ port: 8080, targetPort: 8080 }]
+---
+# Front door of the stable-diffusion GPU consumer: asks gpuctl for the GPU, then forwards. Clients keep
+# calling the Service "stable-diffusion", which now points here, and the real one is "stable-diffusion-backend".
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpuproxy-stable-diffusion
+  namespace: homelab
+spec:
+  selector: { matchLabels: { app: gpuproxy-stable-diffusion } }
+  template:
+    metadata:
+      labels: { app: gpuproxy-stable-diffusion }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: gpuproxy
+          image: 100.117.102.56:5000/gpuproxy@sha256:874f9e3f22d3e41f9de5597c81f57ff5d037ff92ad7da131e7f420a3f30ef7e5
+          args: ["-consumer", "stable-diffusion", "-backend", "http://stable-diffusion-backend:1234", "-gpuctl", "http://gpuctl.gpu-system"]
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /_gpuproxy/healthz, port: 8080 }
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stable-diffusion
+  namespace: homelab
+spec:
+  selector: { app: gpuproxy-stable-diffusion }
+  ports: [{ port: 1234, targetPort: 8080 }]

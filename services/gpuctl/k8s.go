@@ -214,3 +214,29 @@ func (k *kube) Replicas(ctx context.Context, consumer string) (int32, error) {
 	}
 	return n, nil
 }
+
+// startTimeoutAnnotation lets a slow consumer say how long it may take to become ready.
+const startTimeoutAnnotation = "gpu.kratos/start-timeout"
+
+// StartTimeout is the longest start-timeout annotation over the consumer's Deployments.
+func (k *kube) StartTimeout(ctx context.Context, consumer string) (time.Duration, error) {
+	ds, err := k.deployments(ctx, consumer)
+	if err != nil {
+		return 0, err
+	}
+	var longest time.Duration
+	for _, d := range ds {
+		v := d.Annotations[startTimeoutAnnotation]
+		if v == "" {
+			continue
+		}
+		t, err := time.ParseDuration(v)
+		if err != nil {
+			return 0, fmt.Errorf("%s/%s: bad %s %q: %w", d.Namespace, d.Name, startTimeoutAnnotation, v, err)
+		}
+		if t > longest {
+			longest = t
+		}
+	}
+	return longest, nil
+}

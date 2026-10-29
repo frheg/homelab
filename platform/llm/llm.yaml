@@ -8,6 +8,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: llm
+  labels:
+    gpu.kratos/access: "true" # gpuproxy calls the arbiter
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -58,10 +60,19 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: llm
+  name: llm-backend
   namespace: llm
 spec:
   selector: { app: llm }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm
+  namespace: llm
+spec:
+  selector: { app: gpuproxy-llm }
   ports: [{ port: 80, targetPort: 8080 }]
 ---
 # Access control: nothing may call the gateway unless its namespace is labelled
@@ -79,6 +90,7 @@ spec:
     - from:
         - namespaceSelector: { matchLabels: { llm.kratos/access: "true" } }
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: gpu-system } }
+        - podSelector: {} # the proxy reaches the gateway inside this namespace
       ports: [{ port: 8080 }]
 ---
 # CPU-only gateway. Not a gpuctl consumer: it has no GPU claim, so it keeps working
@@ -135,3 +147,35 @@ metadata:
 spec:
   selector: { app: llm-cpu }
   ports: [{ port: 80, targetPort: 8080 }]
+---
+# Front door of the llm GPU consumer: asks gpuctl for the GPU, then forwards. Clients keep
+# calling the Service "llm", which now points here, and the real one is "llm-backend".
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpuproxy-llm
+  namespace: llm
+spec:
+  selector: { matchLabels: { app: gpuproxy-llm } }
+  template:
+    metadata:
+      labels: { app: gpuproxy-llm }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: gpuproxy
+          image: 100.117.102.56:5000/gpuproxy@sha256:874f9e3f22d3e41f9de5597c81f57ff5d037ff92ad7da131e7f420a3f30ef7e5
+          args: ["-consumer", "llm", "-backend", "http://llm-backend.llm", "-gpuctl", "http://gpuctl.gpu-system"]
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /_gpuproxy/healthz, port: 8080 }
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
