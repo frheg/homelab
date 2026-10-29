@@ -2,9 +2,9 @@
 
 ## Start and stop
 
-k3s does not start at boot yet.
+k3s starts at boot. Workloads start by themselves only for the GPU default (llm).
 
-    sudo systemctl start k3s     # about 30 s until the node is Ready
+    sudo systemctl start k3s     # only if you stopped it, about 30 s until Ready
     sudo systemctl stop k3s
 
 ## Look at the cluster
@@ -27,7 +27,7 @@ One consumer holds it at a time. The default is `llm` (the shared model gateway)
     gpuctl unreserve             # the default comes back
     gpuctl acquire <name>        # for batch jobs, blocks until ready
 
-Until gpuctl is on PATH: `nix run ~/homelab#gpuctl -- status`.
+`gpuctl` builds from ~/homelab on first use. After a change to the shell env, log in again.
 Exit codes: 0 ok, 1 error, 2 refused (busy or reserved).
 
 ## Use the LLM
@@ -55,6 +55,11 @@ Do not `kubectl apply` by hand.
 
     kubectl -n <ns> port-forward svc/<name> 8080:80
     go run ./services/<name>     # your code, talking to cluster services
+
+## Check before you push
+
+    nix develop -c scripts/check     # same as CI, about a minute
+    git config core.hooksPath .githooks   # once, runs it on every push
 
 ## Secrets
 

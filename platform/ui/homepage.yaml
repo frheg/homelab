@@ -35,14 +35,17 @@ spec:
       # restart the pod (kubectl -n platform-ui rollout restart deploy/homepage).
       initContainers:
         - name: copy-config
-          image: ghcr.io/gethomepage/homepage:v2.7.0
+          image: ghcr.io/gethomepage/homepage@sha256:19c5c09184458a41b7b5915e71463a39f36cd33540f41bdbed008791b8182d5f # v2.7.0
           command: ["sh", "-c", "cp /config-src/* /app/config/"]
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { memory: 64Mi }
           volumeMounts:
             - { name: config-src, mountPath: /config-src }
             - { name: config, mountPath: /app/config }
       containers:
         - name: homepage
-          image: ghcr.io/gethomepage/homepage:v2.7.0
+          image: ghcr.io/gethomepage/homepage@sha256:19c5c09184458a41b7b5915e71463a39f36cd33540f41bdbed008791b8182d5f # v2.7.0
           ports: [{ containerPort: 3000 }]
           env:
             - { name: HOMEPAGE_ALLOWED_HOSTS, value: "100.117.102.56,kratos" }

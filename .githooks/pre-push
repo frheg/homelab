@@ -1,0 +1,4 @@
+#!/bin/sh
+# Opt in once per clone: git config core.hooksPath .githooks
+# Skip for one push: git push --no-verify
+exec nix develop -c scripts/check

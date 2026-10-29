@@ -1,0 +1,18 @@
+#!/bin/sh
+# usage: scripts/check   every check CI runs. Needs the tools from `nix develop`.
+set -eu
+cd "$(dirname "$0")/.."
+r=$(mktemp); trap 'rm -f "$r"' EXIT
+
+echo "== kustomize";  kubectl kustomize clusters/kratos >/dev/null; kubectl kustomize platform >"$r"
+# Secrets skipped: SOPS adds a "sops:" block that Flux strips, repocheck checks them
+echo "== schemas";    kubeconform -strict -summary -ignore-missing-schemas -skip Secret \
+  -schema-location default \
+  -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' - <"$r"
+echo "== policy";     (cd services/repocheck && go run .) <"$r"
+echo "== go"
+for d in services/*/; do
+  (cd "$d" && test -z "$(gofmt -l .)" && go vet ./... && go test -race ./...)
+done
+echo "== secrets";    gitleaks detect --no-banner --redact
+echo "ok"

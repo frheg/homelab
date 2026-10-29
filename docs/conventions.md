@@ -57,3 +57,15 @@ first, then the code.
 - Leave `replicas` out of the manifest. gpuctl owns it, and Flux would reset it.
 - Use `strategy: Recreate` so a rollout never runs two pods on the GPU.
 - Request the GPU as `nvidia.com/gpu-0: 1` in limits.
+
+## Checks
+
+`scripts/check` runs everything CI runs: kustomize build, schemas (kubeconform),
+repo rules (services/repocheck), gofmt, go vet, go test, gitleaks.
+Run it with `nix develop -c scripts/check`. Enable the pre-push hook with
+`git config core.hooksPath .githooks`.
+
+repocheck enforces: images pinned by digest, requests and a memory limit on every
+container, GPU consumer rules, SOPS-encrypted Secrets, PVCs protected from Flux
+prune, exact Helm chart versions. To add a rule, add a case to `check()` and a test.
+A check that sees no input must fail, never pass.

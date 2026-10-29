@@ -36,5 +36,10 @@
         // builtins.listToAttrs (map
           (n: { name = "image-${n}"; value = image n bins.${n}; })
           (builtins.attrNames goServices));
+
+      # nix develop: everything scripts/check needs
+      devShells.x86_64-linux.default = pkgs.mkShell {
+        packages = with pkgs; [ go kubectl kubeconform gitleaks skopeo ];
+      };
     };
 }

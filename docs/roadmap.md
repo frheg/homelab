@@ -2,13 +2,13 @@
 
 ## Done
 
-k3s, Flux, sops-nix, private registry, Headlamp, Homepage, GPU plugin,
-LLM gateway (llama-swap), gpuctl (GPU arbiter).
+k3s (starts at boot), Flux, sops-nix, private registry, Headlamp, Homepage, GPU plugin,
+LLM gateway (llama-swap), gpuctl (GPU arbiter), CLIs on PATH (kubectl, k9s, flux,
+sops, gpuctl), backups of keys (Proton Pass) and etcd (Proton Drive), CI (scripts/check,
+GitHub Actions). Reboot test passed on 2026-10-29: cluster came up by itself.
 
 ## Missing for daily use
 
-1. Boot: k3s does not start by itself. Enable it once the setup is trusted.
-2. CLIs on PATH via home-manager: gpuctl, kubectl, k9s, flux.
 3. gpuproxy: wake a GPU consumer on request. Design in gpu-arbiter.md.
 4. profctl and Homepage buttons: start/stop groups of services, GPU reserve button.
 5. Shared data services: Postgres (pgvector), Qdrant, Neo4j, SearXNG.
@@ -16,10 +16,9 @@ LLM gateway (llama-swap), gpuctl (GPU arbiter).
 7. Backups: Postgres dumps, /srv data, registry, age keys. Test a restore.
 8. Monitoring: metrics, logs, GPU use, simple alerts.
 9. Security: drop initialPassword (sops), HTTPS, registry auth.
-10. CI on the homelab repo: kustomize build, kubeconform, go test, gitleaks,
-    check for unpinned images.
 11. Service template: `scripts/new-service <name>` to scaffold code, image, manifests.
-12. Known risk: generic-cdi-plugin churns devices and races after a k3s restart.
+12. Known risk: generic-cdi-plugin churns devices and races after a k3s or system
+    restart, which leaves one dead llm pod object on every boot (cosmetic).
     Evaluate NVIDIA's official device plugin.
 
 ## Migrating HomeLab (old project, ~/Documents/HomeLab)
