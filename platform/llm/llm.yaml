@@ -1,0 +1,120 @@
+# Shared LLM gateway (llama-swap). One model is loaded at a time, others swap in
+# on demand. Projects call http://llm.llm and never run their own llama.
+# It is a GPU consumer: gpuctl decides when it runs, so replicas is NOT set here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llama-swap
+  namespace: llm
+data:
+  config.yaml: |
+    # Flags tuned for the RTX 5060 Ti 16GB. One model resident at a time.
+    healthCheckTimeout: 300
+    logRequests: true
+
+    models:
+      "qwen3.6-35b":
+        description: "General default"
+        cmd: >
+          /app/llama-server --port 9999 -m /models/Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL.gguf
+          -ngl 999 --n-cpu-moe 18 --ctx-size 65536 --ubatch-size 256
+          --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0
+          --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1 --jinja
+        proxy: "http://127.0.0.1:9999"
+        ttl: 1800
+
+      "qwen3-next-80b":
+        description: "Long context (262k)"
+        cmd: >
+          /app/llama-server --port 9999 -m /models/qwen3-next-80b-a3b-UD-Q2_K_XL.gguf
+          -ngl 999 --n-cpu-moe 32 --ctx-size 262144 --ubatch-size 256
+          --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --jinja
+        proxy: "http://127.0.0.1:9999"
+        ttl: 1800
+
+      "qwen3.8-27b-q3":
+        description: "Dense 27B, smaller quant"
+        cmd: >
+          /app/llama-server --port 9999 -m /models/Qwen3.8-27B-UD-Q3_K_XL.gguf
+          -ngl 999 --ctx-size 98304 --ubatch-size 256
+          --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0
+          --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1 --jinja
+        proxy: "http://127.0.0.1:9999"
+        ttl: 1800
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm
+  namespace: llm
+  labels: { gpu.kratos/consumer: llm }
+spec:
+  # replicas is owned by gpuctl, do not set it
+  strategy: { type: Recreate } # never two pods on the GPU during a rollout
+  selector: { matchLabels: { app: llm } }
+  template:
+    metadata:
+      labels: { app: llm, gpu.kratos/consumer: llm }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: llama-swap
+          image: ghcr.io/mostlygeek/llama-swap@sha256:ef4fea63ff88e4f9e13427f005a56457b2d341b68b7a09b452b07514e63cff26 # cuda
+          args: ["-config", "/app/config.yaml", "-listen", ":8080"]
+          env:
+            - { name: HOME, value: /tmp }
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+          resources:
+            requests: { cpu: "2", memory: 4Gi }
+            limits: { memory: 24Gi, nvidia.com/gpu-0: "1" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: config, mountPath: /app/config.yaml, subPath: config.yaml, readOnly: true }
+            - { name: models, mountPath: /models, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: config
+          configMap: { name: llama-swap }
+        - name: models
+          hostPath: { path: /srv/models, type: Directory }
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm
+  namespace: llm
+spec:
+  selector: { app: llm }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+# Access control: nothing may call the gateway unless its namespace is labelled
+#   llm.kratos/access=true     (kubectl label ns <project> llm.kratos/access=true)
+# gpu-system is allowed for the proxy that wakes the gateway.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-llm-clients
+  namespace: llm
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { llm.kratos/access: "true" } }
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: gpu-system } }
+      ports: [{ port: 8080 }]

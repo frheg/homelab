@@ -50,3 +50,10 @@ first, then the code.
 - Docs and code comments are short and plain. Prefer one line.
 - No em-dashes, no filler, no marketing words.
 - Comment the why, not the what. Skip comments the code already says.
+
+## GPU consumers
+
+- Label the Deployment and its pod template `gpu.kratos/consumer=<name>`.
+- Leave `replicas` out of the manifest. gpuctl owns it, and Flux would reset it.
+- Use `strategy: Recreate` so a rollout never runs two pods on the GPU.
+- Request the GPU as `nvidia.com/gpu-0: 1` in limits.

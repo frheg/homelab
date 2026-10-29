@@ -41,3 +41,6 @@ End-to-end, against the real cluster (touches only namespace `gpuctl-test`):
     kubectl apply -f e2e/consumers.yaml
     go test -tags e2e -run TestE2E -v -timeout 10m ./...
     kubectl delete -f e2e/consumers.yaml
+
+Do not set `replicas` on a consumer Deployment. Flux would reset the value gpud
+sets. See [conventions](../../docs/conventions.md).
