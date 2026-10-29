@@ -1,0 +1,119 @@
+# GPU arbiter. Decides which labelled consumer holds the GPU, see docs/gpu-arbiter.md.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpu-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gpuctl
+  namespace: gpu-system
+---
+# Scale consumers (any namespace) and see their pods.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gpuctl
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    verbs: [get, list, patch]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gpuctl
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: gpuctl }
+subjects:
+  - { kind: ServiceAccount, name: gpuctl, namespace: gpu-system }
+---
+# Its own state ConfigMap, nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gpuctl-state
+  namespace: gpu-system
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [get, create, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gpuctl-state
+  namespace: gpu-system
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: Role, name: gpuctl-state }
+subjects:
+  - { kind: ServiceAccount, name: gpuctl, namespace: gpu-system }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpuctl
+  namespace: gpu-system
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: gpuctl } }
+  template:
+    metadata:
+      labels: { app: gpuctl }
+    spec:
+      serviceAccountName: gpuctl
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: gpuctl
+          image: 100.117.102.56:5000/gpuctl@sha256:7d212e6e902f192e0673600b93482debe5d9e518b2fbd1c245370ea9dd26e665 # 68a41e8
+          args: ["serve", "-default", "llm", "-listen", ":8080"]
+          env:
+            - name: POD_NAMESPACE
+              valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /status, port: 8080 }
+          livenessProbe:
+            httpGet: { path: /status, port: 8080 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 10m, memory: 16Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+# A fixed address so the CLI on kratos has a stable GPUCTL_ADDR:
+#   export GPUCTL_ADDR=http://10.43.0.50
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpuctl
+  namespace: gpu-system
+spec:
+  clusterIP: 10.43.0.50
+  selector: { app: gpuctl }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+# No auth on the API, so only labelled namespaces may reach it:
+#   kubectl label ns <name> gpu.kratos/access=true
+# Traffic from the node itself (the CLI on kratos) is not filtered.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gpuctl-clients
+  namespace: gpu-system
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { gpu.kratos/access: "true" } }
+      ports: [{ port: 8080 }]
