@@ -29,7 +29,7 @@ spec:
         - podSelector: {}
         - namespaceSelector: { matchLabels: { monitoring.kratos/access: "true" } }
 ---
-# Grafana is only for Traefik, after the basic-auth.
+# Grafana is for Traefik (after the basic-auth) and for VictoriaMetrics scraping its metrics.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: { name: allow-grafana-clients, namespace: monitoring }
@@ -39,4 +39,5 @@ spec:
   ingress:
     - from:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } }
+        - podSelector: { matchLabels: { app: victoria } }
       ports: [{ port: 3000 }]

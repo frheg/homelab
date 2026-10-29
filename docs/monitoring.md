@@ -44,3 +44,10 @@ Send a test alert:
 - New alert: add it to a file in `rules/`, run `scripts/check` (vmalert validates the rules).
 - New scrape target: edit `scrape.yaml`. A changed file gets a new ConfigMap name, so the pod restarts.
 - Another namespace may query the APIs when labelled `monitoring.kratos/access=true`.
+
+## Pitfall
+
+VictoriaMetrics counts the first sample of a new series as growth in `increase()` and `changes()`.
+After a fresh start every restart counter looks like a burst of restarts and floods the phone.
+For counters in alert rules use `x - (x offset 15m) > 0`: a series younger than the offset has
+no value to subtract from, so it cannot fire.
