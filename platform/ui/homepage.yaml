@@ -1,0 +1,53 @@
+# Dashboard at /. Static config for now; links grow as services are added.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: homepage, namespace: platform-ui }
+data:
+  settings.yaml: |
+    title: kratos
+    headerStyle: clean
+  services.yaml: |
+    - Cluster:
+        - Headlamp:
+            href: /headlamp
+            description: Kubernetes UI (token login)
+  widgets.yaml: |
+    - resources:
+        cpu: true
+        memory: true
+        disk: /
+  bookmarks.yaml: ""
+  docker.yaml: ""
+  kubernetes.yaml: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: homepage, namespace: platform-ui }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: homepage } }
+  template:
+    metadata: { labels: { app: homepage } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: homepage
+          image: ghcr.io/gethomepage/homepage:v2.7.0
+          ports: [{ containerPort: 3000 }]
+          env:
+            - { name: HOMEPAGE_ALLOWED_HOSTS, value: "100.117.102.56,kratos" }
+          resources:
+            requests: { cpu: 25m, memory: 96Mi }
+            limits: { memory: 384Mi }
+          volumeMounts:
+            - { name: config, mountPath: /app/config }
+      volumes:
+        - name: config
+          configMap: { name: homepage }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: homepage, namespace: platform-ui }
+spec:
+  selector: { app: homepage }
+  ports: [{ port: 80, targetPort: 3000 }]

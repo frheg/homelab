@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: basic-auth-users
+    namespace: platform-ui
+type: Opaque
+stringData:
+    users: ENC[AES256_GCM,data:wDT9Btw/QqxDEqUpcRDII14D60VSNAkGGaVEUMiBro8mIyZ4PspjwEV4xKnoJ7oDkv0iFlznyX7XeeAx51WqEw==,iv:wIlFRBV1KyijZi9M/LnQtDJvumY3bFdO9vP14wqJTf0=,tag:c20ba35crf2ftvl9AVV1sw==,type:str]
+sops:
+    age:
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBONWRVeTNtK0JXTXNpajkr
+            NzI0TWhGYjMwcDdZN3JnMUJlMEhXRFphNGw0ClJZK1BIU1owZGZGU0hSdlVGcEds
+            WGQ3SEkwQmxCWmFTc1h2MnZlS2JUUzAKLS0tIGU2dnBUa281RnJZaDR6TnVRNmZt
+            R010di8vU09ZN2F5dWJOL1hxemxzbTgKv/KiRwps0DPk4zEDTidN+atWj/mvKBKV
+            WR5/vBKH5r8XBI0PANwUbW4gLcUKxAAzfFDuYbuyTB9aalOflfeI7Q==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age1ahazhllat0dkd6qvdt8yp8kjuc65nnleqm2hzrgu45qpd9tqa9kqfkg9y3
+        - enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBIcVhUbGxwRGxQdm1zd2pk
+            ZVVvOXlRTVBseC9oNEF0ZytoSVhmUzFvZVc4ClcyVUx1RHU0RFVPNWJWUmJ5Q29X
+            U3FJLzZhSFJLSWVHdnprTE1aWS80azQKLS0tIHB4QndZcWlKVFhLMVA5UE96NGVt
+            dHFDSkhqdjdXZndvdmZTTjNJMDdkUUEKvUxzVObHX7vK2cfXzDcQ6CZlet6B3PHo
+            8YgNoBYppUEx2U1tLsdZgivG6yd8rbU48KMFslrd8WY26kcf0xgkrw==
+            -----END AGE ENCRYPTED FILE-----
+          recipient: age10g6fcjfzdzrj98ct8sr8kuhvtfrm5wfj6smgkfdrylgacjhn3vmqukrxys
+    encrypted_regex: ^(data|stringData)$
+    lastmodified: "2026-10-29T16:34:23Z"
+    mac: ENC[AES256_GCM,data:5SSpktzXJ323gsheRGEv8DsJstRVVBr57JboAuSI0V+4mC83/FXriS8JZHMbhAOt8WgUkKqrsf0HXZI7yttZILbEybrHzVmQZoW4prjOranWdhMr88OC+WQu2p1muOwkMJYXOEFcNVsR+9gVDv5bcgcO5x67cEq/fFUPtrnAMmY=,iv:afnKFnQy722qUkq9dRZT1pmxWqtlz2uAhFyFy3yLFtM=,tag:LZWVoqSd8hGSQUYI44wvpQ==,type:str]
+    version: 3.13.3
