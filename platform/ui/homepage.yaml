@@ -30,6 +30,16 @@ spec:
     metadata: { labels: { app: homepage } }
     spec:
       enableServiceLinks: false
+      # Homepage writes /app/config/logs, so config must be on a writable
+      # volume: copy the ConfigMap in at start. After editing the ConfigMap,
+      # restart the pod (kubectl -n platform-ui rollout restart deploy/homepage).
+      initContainers:
+        - name: copy-config
+          image: ghcr.io/gethomepage/homepage:v2.7.0
+          command: ["sh", "-c", "cp /config-src/* /app/config/"]
+          volumeMounts:
+            - { name: config-src, mountPath: /config-src }
+            - { name: config, mountPath: /app/config }
       containers:
         - name: homepage
           image: ghcr.io/gethomepage/homepage:v2.7.0
@@ -42,8 +52,10 @@ spec:
           volumeMounts:
             - { name: config, mountPath: /app/config }
       volumes:
-        - name: config
+        - name: config-src
           configMap: { name: homepage }
+        - name: config
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
