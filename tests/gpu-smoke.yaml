@@ -1,0 +1,16 @@
+# Phase 1 gate: can a pod run nvidia-smi through the CDI device plugin?
+# Run by hand, not managed by Flux: kubectl apply -f k8s/tests/gpu-smoke.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-smoke
+  namespace: default
+spec:
+  restartPolicy: Never
+  containers:
+    - name: smoke
+      image: ubuntu:24.04
+      command: ["nvidia-smi"]
+      resources:
+        limits:
+          nvidia.com/gpu-0: "1"
