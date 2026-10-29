@@ -1,5 +1,5 @@
 // profctl starts and stops groups of services. A profile is the set of
-// namespaces labelled profile.kratos/<name>=true. GPU consumers are left to gpuctl.
+// namespaces labelled profile.kratos/<name>=true. GPU consumers and their proxies are left alone.
 package main
 
 import (
@@ -17,7 +17,7 @@ const usage = `usage: profctl <command> [profile]
   list              profiles and their namespaces
   status <profile>  every workload, ready/desired
   up <profile>      start what is stopped (saved replicas, default 1)
-  down <profile>    stop everything except GPU consumers
+  down <profile>    stop everything except GPU consumers and proxies
 
 exit codes: 0 ok, 1 error
 `

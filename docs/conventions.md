@@ -57,6 +57,7 @@ first, then the code.
 - Leave `replicas` out of the manifest. gpuctl owns it, and Flux would reset it.
 - Use `strategy: Recreate` so a rollout never runs two pods on the GPU.
 - Request the GPU as `nvidia.com/gpu-0: 1` in limits.
+- Label the consumer's gpuproxy Deployment `gpu.kratos/proxy=<name>`, so profctl leaves it up.
 
 ## Checks
 

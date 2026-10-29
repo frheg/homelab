@@ -83,14 +83,19 @@ docker compose. The old Postgres data directory was never touched.
 - Stable Diffusion: `gpuctl acquire stable-diffusion` switched the GPU in 18 s,
   found the RTX 5060 Ti (compute 12.0) running non-root.
 
+## Proven since
+
+- **Strata.** With `profctl down homelab` first and a 25 m start timeout, Strata
+  loaded in about 45 s (24.8 GB RAM used, 7 GB left, VRAM full) and answered a chat
+  request in 1.2 s.
+- **Wake on request.** A POST to the sleeping `llm` through its proxy waited out the
+  min-hold, woke the model and returned 200. Reserved GPU gives 503 with `Retry-After`.
+
 ## Not proven yet
 
-- **Strata.** The first `gpuctl acquire strata` timed out: the engine needs far more
-  than the 120 s switch limit. Plan: a per-consumer start timeout annotation read by
-  gpuctl. It also page-locks tens of GB of RAM, so try it with the rest of the
-  homelab profile stopped (`profctl down homelab`).
-- **k3s crash.** During that attempt k3s 1.36.5 panicked (nil pointer in the
+- **k3s crash.** During the first Strata attempt k3s 1.36.5 panicked (nil pointer in the
   replica-set controller, journal: `panic: runtime error: invalid memory address`)
   and systemd restarted it within 30 s. Nothing was lost; gpuctl recovered its state.
-  If it repeats, report it upstream and consider a k3s version bump.
+  It did not repeat in the second attempt. If it does, report it upstream and consider
+  a k3s version bump.
 - The LLM chat path from the API (needs a model loaded on the GPU) was not exercised.

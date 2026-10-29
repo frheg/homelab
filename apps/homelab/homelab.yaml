@@ -296,6 +296,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gpuproxy-strata
+  labels: { gpu.kratos/proxy: strata }
   namespace: homelab
 spec:
   selector: { matchLabels: { app: gpuproxy-strata } }
@@ -337,6 +338,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gpuproxy-stable-diffusion
+  labels: { gpu.kratos/proxy: stable-diffusion }
   namespace: homelab
 spec:
   selector: { matchLabels: { app: gpuproxy-stable-diffusion } }

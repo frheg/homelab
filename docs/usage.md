@@ -25,7 +25,7 @@ Tokens (read-only, or use headlamp-admin-token to change things):
     profctl up homelab            start them again
 
 A profile is the set of namespaces labelled `profile.kratos/<name>=true`.
-GPU consumers are not touched by profctl, gpuctl owns them.
+GPU consumers and their proxies are not touched by profctl. gpuctl owns the consumers, the proxies must stay up to wake them.
 
 ## The GPU
 

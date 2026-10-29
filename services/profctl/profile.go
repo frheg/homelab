@@ -16,7 +16,19 @@ const (
 	profilePrefix = "profile.kratos/"
 	savedReplicas = "profile.kratos/replicas" // annotation: replicas before down
 	consumerLabel = "gpu.kratos/consumer"     // owned by gpuctl, never touched here
+	proxyLabel    = "gpu.kratos/proxy"        // wakes a consumer on request, must stay up
 )
+
+// leftAlone says why profctl must not scale a workload, or "" if it may.
+func leftAlone(labels map[string]string) string {
+	switch {
+	case labels[consumerLabel] != "":
+		return "gpu consumer, managed by gpuctl"
+	case labels[proxyLabel] != "":
+		return "gpu proxy, always on"
+	}
+	return ""
+}
 
 // workload is a Deployment or StatefulSet, reduced to what we need.
 type workload struct {
@@ -24,7 +36,7 @@ type workload struct {
 	replicas       int32
 	ready          int32
 	annotations    map[string]string
-	consumer       bool
+	leftAlone      string
 }
 
 func namespaces(ctx context.Context, cs kubernetes.Interface, profile string) ([]string, error) {
@@ -68,14 +80,14 @@ func workloads(ctx context.Context, cs kubernetes.Interface, ns string) ([]workl
 		return nil, err
 	}
 	for _, d := range ds.Items {
-		out = append(out, workload{ns, "deployment", d.Name, replicasOf(d.Spec.Replicas), d.Status.ReadyReplicas, d.Annotations, d.Labels[consumerLabel] != ""})
+		out = append(out, workload{ns, "deployment", d.Name, replicasOf(d.Spec.Replicas), d.Status.ReadyReplicas, d.Annotations, leftAlone(d.Labels)})
 	}
 	ss, err := cs.AppsV1().StatefulSets(ns).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 	for _, s := range ss.Items {
-		out = append(out, workload{ns, "statefulset", s.Name, replicasOf(s.Spec.Replicas), s.Status.ReadyReplicas, s.Annotations, s.Labels[consumerLabel] != ""})
+		out = append(out, workload{ns, "statefulset", s.Name, replicasOf(s.Spec.Replicas), s.Status.ReadyReplicas, s.Annotations, leftAlone(s.Labels)})
 	}
 	return out, nil
 }
@@ -103,7 +115,7 @@ func scale(ctx context.Context, cs kubernetes.Interface, w workload, replicas in
 	return err
 }
 
-// down stops every non-consumer workload in the profile and remembers its replicas.
+// down stops every workload not left alone in the profile and remembers its replicas.
 func down(ctx context.Context, cs kubernetes.Interface, profile string, out io.Writer) error {
 	return each(ctx, cs, profile, out, func(w workload) (bool, error) {
 		if w.replicas == 0 {
@@ -114,7 +126,7 @@ func down(ctx context.Context, cs kubernetes.Interface, profile string, out io.W
 	})
 }
 
-// up starts every stopped non-consumer workload at its saved replicas, default 1.
+// up starts every stopped workload not left alone at its saved replicas, default 1.
 func up(ctx context.Context, cs kubernetes.Interface, profile string, out io.Writer) error {
 	return each(ctx, cs, profile, out, func(w workload) (bool, error) {
 		if w.replicas > 0 {
@@ -144,7 +156,7 @@ func each(ctx context.Context, cs kubernetes.Interface, profile string, out io.W
 			return err
 		}
 		for _, w := range ws {
-			if w.consumer {
+			if w.leftAlone != "" {
 				continue
 			}
 			did, err := f(w)
@@ -176,8 +188,8 @@ func status(ctx context.Context, cs kubernetes.Interface, profile string, out io
 		}
 		for _, w := range ws {
 			note := ""
-			if w.consumer {
-				note = "  (gpu consumer, managed by gpuctl)"
+			if w.leftAlone != "" {
+				note = "  (" + w.leftAlone + ")"
 			}
 			fmt.Fprintf(out, "%-14s %s/%-24s %d/%d%s\n", w.kind, w.ns, w.name, w.ready, w.replicas, note)
 		}

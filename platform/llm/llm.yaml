@@ -154,6 +154,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gpuproxy-llm
+  labels: { gpu.kratos/proxy: llm }
   namespace: llm
 spec:
   selector: { matchLabels: { app: gpuproxy-llm } }

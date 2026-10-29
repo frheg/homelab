@@ -86,6 +86,24 @@ func TestGPUConsumersAreLeftAlone(t *testing.T) {
 	}
 }
 
+func TestGPUProxiesStayUp(t *testing.T) {
+	cs := fake.NewSimpleClientset(
+		ns("a", "demo"),
+		dep("a", "web", i32(1), nil),
+		dep("a", "gpuproxy-sd", i32(1), map[string]string{proxyLabel: "sd"}),
+	)
+	var out bytes.Buffer
+	if err := down(context.Background(), cs, "demo", &out); err != nil {
+		t.Fatal(err)
+	}
+	if got(t, cs, "a", "web") != 0 {
+		t.Fatal("web should stop")
+	}
+	if got(t, cs, "a", "gpuproxy-sd") != 1 {
+		t.Fatal("gpu proxy must stay up, it is what wakes the consumer")
+	}
+}
+
 func TestDownTwiceKeepsTheFirstSavedCount(t *testing.T) {
 	cs := fake.NewSimpleClientset(ns("a", "demo"), dep("a", "web", i32(3), nil))
 	ctx := context.Background()
