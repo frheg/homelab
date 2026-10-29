@@ -1,0 +1,107 @@
+# vmalert evaluates rules/*.yaml against VictoriaMetrics, Alertmanager groups
+# the firing alerts and sends them to ntfy (ntfy.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: vmalert, namespace: monitoring }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: vmalert } }
+  template:
+    metadata:
+      labels: { app: vmalert }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: vmalert
+          image: 100.117.102.56:5000/mirror/vmalert@sha256:b052c25248d041876bb4eba6429507a5d5394afa6c6e55922e22db9aea24cf57 # v1.154.1
+          args:
+            - -rule=/rules/*.yaml
+            - -datasource.url=http://victoria:8428
+            - -notifier.url=http://alertmanager:9093
+            # alert state is written back, so a restart does not forget what is pending
+            - -remoteWrite.url=http://victoria:8428
+            - -remoteRead.url=http://victoria:8428
+            - -evaluationInterval=30s
+            - -httpListenAddr=:8880
+          ports: [{ name: http, containerPort: 8880 }]
+          readinessProbe:
+            httpGet: { path: /health, port: 8880 }
+          resources:
+            requests: { cpu: 10m, memory: 48Mi }
+            limits: { memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: rules, mountPath: /rules }
+      volumes:
+        - name: rules
+          projected:
+            sources:
+              - configMap: { name: vmalert-rules-node }
+              - configMap: { name: vmalert-rules-gpu }
+              - configMap: { name: vmalert-rules-kubernetes }
+              - configMap: { name: vmalert-rules-backup }
+              - configMap: { name: vmalert-rules-meta }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: vmalert, namespace: monitoring }
+spec:
+  selector: { app: vmalert }
+  ports: [{ name: http, port: 8880, targetPort: 8880 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: alertmanager, namespace: monitoring }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: alertmanager } }
+  template:
+    metadata:
+      labels: { app: alertmanager }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: alertmanager
+          image: 100.117.102.56:5000/mirror/alertmanager@sha256:7619e9399e623c9f99a40cb199c2bceb972cbf725598a51dcbde69d51dcaaedf # v0.34.2
+          args:
+            - --config.file=/config/alertmanager.yaml
+            - --storage.path=/data
+          ports: [{ name: http, containerPort: 9093 }]
+          readinessProbe:
+            httpGet: { path: /-/ready, port: 9093 }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: config, mountPath: /config }
+            - { name: token, mountPath: /secrets, readOnly: true }
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: config
+          configMap: { name: alertmanager-config }
+        - name: token
+          secret:
+            secretName: ntfy-auth
+            items: [{ key: token, path: token }]
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata: { name: alertmanager, namespace: monitoring }
+spec:
+  selector: { app: alertmanager }
+  ports: [{ name: http, port: 9093, targetPort: 9093 }]

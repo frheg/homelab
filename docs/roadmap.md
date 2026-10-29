@@ -14,7 +14,7 @@ GitHub Actions). Reboot test passed on 2026-10-29: cluster came up by itself.
 5. (done) Shared data services: Postgres, Qdrant, Neo4j, SearXNG. See migration-homelab.md.
 6. Embedding and rerank servers, as GPU or CPU consumers.
 7. Backups: /srv data and the registry. Path B (etcd restore) is rehearsed, path A is not.
-8. Monitoring: metrics, logs, GPU use, simple alerts.
+8. (built, unverified) Monitoring: metrics, dashboards, push alerts, see monitoring.md. Not yet: logs, VRAM in the panel.
 9. Security: HTTPS, registry auth. SSH: add keys (one per device, plus a backup key in Pass), turn on Tailscale SSH as a second path, then turn off sshd passwords (local console login keeps its password). Add tailnet ACLs before anyone else joins. Delete the stale `initialPassword = "nixos"` lines in hosts/atlas.nix and hosts/kratos.nix (dead config: passwd was changed on both hosts, but a reinstall would bring it back).
 11. Service template: `scripts/new-service <name>` to scaffold code, image, manifests.
 12. generic-cdi-plugin: the 30 s device churn and the count of 2 are by design (one spare

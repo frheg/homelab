@@ -1,0 +1,28 @@
+groups:
+  - name: node
+    rules:
+      - alert: NodeDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "kratos host metrics are gone", description: "node_exporter on the host does not answer." }
+      - alert: DiskAlmostFull
+        expr: node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|ramfs"} / node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|ramfs"} < 0.15
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Root disk under 15% free", description: "{{ $value | humanizePercentage }} free on /." }
+      - alert: DiskFull
+        expr: node_filesystem_avail_bytes{mountpoint="/", fstype!~"tmpfs|ramfs"} / node_filesystem_size_bytes{mountpoint="/", fstype!~"tmpfs|ramfs"} < 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Root disk under 5% free", description: "{{ $value | humanizePercentage }} free on /." }
+      - alert: MemoryLow
+        expr: node_memory_MemAvailable_bytes < 1.5e9
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Under 1.5 GB of RAM available", description: "{{ $value | humanize1024 }}B available." }
+      - alert: SystemdUnitFailed
+        expr: node_systemd_unit_state{state="failed"} == 1
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "systemd unit failed: {{ $labels.name }}", description: "Check: systemctl status {{ $labels.name }}" }

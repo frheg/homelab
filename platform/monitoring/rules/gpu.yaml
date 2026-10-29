@@ -1,0 +1,18 @@
+groups:
+  - name: gpu
+    rules:
+      - alert: GPUExporterDown
+        expr: up{job="gpu"} == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "GPU metrics are gone", description: "nvidia_gpu_exporter on the host does not answer." }
+      - alert: GPUHot
+        expr: nvidia_smi_temperature_gpu > 85
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "GPU at {{ $value }} C", description: "Over 85 C for 5 minutes." }
+      - alert: GPUVeryHot
+        expr: nvidia_smi_temperature_gpu > 92
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "GPU at {{ $value }} C", description: "Over 92 C. Stop the workload." }

@@ -1,0 +1,19 @@
+# The backup jobs write backup_last_success_timestamp_seconds{task=...} into the node_exporter
+# textfile directory (dotfiles_nix, modules/backup.nix and home/kratos-backup.nix).
+groups:
+  - name: backup
+    rules:
+      - alert: EtcdExportOld
+        expr: time() - backup_last_success_timestamp_seconds{task="etcd-export"} > 36 * 3600
+        labels: { severity: warning }
+        annotations: { summary: "No etcd export for over 36 hours", description: "Last good run {{ $value | humanizeDuration }} ago. Check: systemctl status etcd-export" }
+      - alert: BackupUploadOld
+        expr: time() - backup_last_success_timestamp_seconds{task="upload"} > 36 * 3600
+        labels: { severity: warning }
+        annotations: { summary: "No backup upload to Proton for over 36 hours", description: "Last good run {{ $value | humanizeDuration }} ago. Check: journalctl --user -u kratos-backup-upload" }
+      # the file only appears after the first good run; no file for 3 days is also a failure
+      - alert: BackupNeverRan
+        expr: absent(backup_last_success_timestamp_seconds{task="etcd-export"}) or absent(backup_last_success_timestamp_seconds{task="upload"})
+        for: 3d
+        labels: { severity: warning }
+        annotations: { summary: "A backup job has never reported success", description: "No timestamp file for etcd-export or upload." }

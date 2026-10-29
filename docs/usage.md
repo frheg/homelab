@@ -13,6 +13,7 @@ k3s starts at boot. Workloads start by themselves only for the GPU default (llm)
     http://kratos/               # Homepage, user v1s, password in ~/.config/homelab/ui-password
     http://kratos/headlamp/      # needs the trailing slash, then a token
     http://kratos/panel/         # buttons: reserve the GPU, switch it, start and stop profiles
+    http://kratos/grafana/       # dashboards (docs/monitoring.md)
 
 Tokens (read-only, or use headlamp-admin-token to change things):
 

@@ -1,0 +1,39 @@
+groups:
+  - name: kubernetes
+    rules:
+      - alert: NodeNotReady
+        expr: kube_node_status_condition{condition="Ready", status="true"} == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Node {{ $labels.node }} is not Ready", description: "Kubernetes reports the node as not Ready." }
+      - alert: PodCrashLooping
+        expr: increase(kube_pod_container_status_restarts_total[30m]) > 3
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "{{ $labels.namespace }}/{{ $labels.pod }} keeps restarting", description: "Container {{ $labels.container }} restarted {{ $value | humanize }} times in 30 minutes." }
+      - alert: ContainerOOMKilled
+        expr: (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1) and on (namespace, pod, container) (increase(kube_pod_container_status_restarts_total[15m]) > 0)
+        labels: { severity: warning }
+        annotations: { summary: "{{ $labels.namespace }}/{{ $labels.pod }} was OOM killed", description: "Container {{ $labels.container }} hit its memory limit." }
+      # GPU consumers are scaled to 0 by gpuctl, so only Deployments that want pods count.
+      # 30 minutes covers the slowest start (strata, 25 minutes).
+      - alert: DeploymentUnavailable
+        expr: kube_deployment_spec_replicas > 0 and kube_deployment_status_replicas_available < kube_deployment_spec_replicas
+        for: 30m
+        labels: { severity: warning }
+        annotations: { summary: "{{ $labels.namespace }}/{{ $labels.deployment }} is not available", description: "Fewer replicas ready than wanted for 30 minutes." }
+      - alert: DaemonSetUnavailable
+        expr: kube_daemonset_status_number_unavailable > 0
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "{{ $labels.namespace }}/{{ $labels.daemonset }} has unavailable pods", description: "{{ $value }} pods not ready for 15 minutes." }
+      - alert: ClaimPending
+        expr: kube_persistentvolumeclaim_status_phase{phase="Pending"} == 1
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "Claim {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} is Pending", description: "No volume was bound in 15 minutes." }
+      - alert: FluxNotReady
+        expr: gotk_reconcile_condition{type="Ready", status="False"} == 1
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "Flux {{ $labels.kind }} {{ $labels.name }} is not Ready", description: "Check: flux get all -A" }

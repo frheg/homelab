@@ -1,0 +1,8 @@
+#!/bin/sh
+# usage: scripts/mirror <image:tag> <name>  copy a third-party image (amd64) into the registry as mirror/<name>, print the digest
+set -eu
+src=$1; name=$2
+tag=${src##*:}
+reg=${REGISTRY:-100.117.102.56:5000}
+nix shell nixpkgs#skopeo -c skopeo --insecure-policy copy --override-os linux --override-arch amd64 --dest-tls-verify=false "docker://$src" "docker://$reg/mirror/$name:$tag" >&2
+nix shell nixpkgs#skopeo -c skopeo inspect --tls-verify=false --format '{{.Digest}}' "docker://$reg/mirror/$name:$tag"

@@ -1,0 +1,6 @@
+# Metrics, alerts and dashboards, see docs/monitoring.md.
+# Access to the query APIs: label the project namespace  monitoring.kratos/access=true
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring

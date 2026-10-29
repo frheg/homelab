@@ -11,6 +11,9 @@ echo "== schemas";    kubeconform -strict -summary -ignore-missing-schemas -skip
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' - <"$r"
 echo "== policy";     (cd services/repocheck && go run .) <"$r"
 echo "== llm models";  (cd services/llmconf && go run . -dir ../../platform/llm -check)
+echo "== alerts"
+out=$(vmalert -rule='platform/monitoring/rules/*.yaml' -dryRun 2>&1) || { echo "$out"; exit 1; }
+amtool check-config platform/monitoring/alertmanager.yaml >/dev/null
 echo "== go"
 for d in services/*/; do
   (cd "$d" && test -z "$(gofmt -l .)" && go vet ./... && go test -race ./...)

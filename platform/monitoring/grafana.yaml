@@ -1,0 +1,63 @@
+# Dashboards at /grafana/, behind the same basic-auth as the rest of the UI (ingress.yaml).
+# No login of its own and no state: datasource and dashboards come from files in git.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: grafana, namespace: monitoring }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: grafana } }
+  template:
+    metadata:
+      labels: { app: grafana }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 472
+        runAsGroup: 472
+      containers:
+        - name: grafana
+          image: 100.117.102.56:5000/mirror/grafana@sha256:ffeeebf613b00fede764821c5e5b1545fb376aba561ae91c488e91f219adb25a # 13.2.5
+          env:
+            - { name: GF_SERVER_ROOT_URL, value: "http://kratos/grafana/" }
+            - { name: GF_SERVER_SERVE_FROM_SUB_PATH, value: "true" }
+            - { name: GF_AUTH_ANONYMOUS_ENABLED, value: "true" }
+            - { name: GF_AUTH_ANONYMOUS_ORG_ROLE, value: Admin }
+            - { name: GF_AUTH_DISABLE_LOGIN_FORM, value: "true" }
+            - { name: GF_ANALYTICS_REPORTING_ENABLED, value: "false" }
+            - { name: GF_ANALYTICS_CHECK_FOR_UPDATES, value: "false" }
+            - { name: GF_METRICS_ENABLED, value: "true" }
+          ports: [{ name: http, containerPort: 3000 }]
+          readinessProbe:
+            httpGet: { path: /grafana/api/health, port: 3000 }
+          resources:
+            requests: { cpu: 25m, memory: 128Mi }
+            limits: { memory: 512Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/grafana }
+            - { name: tmp, mountPath: /tmp }
+            - { name: datasources, mountPath: /etc/grafana/provisioning/datasources }
+            - { name: dashboard-provider, mountPath: /etc/grafana/provisioning/dashboards }
+            - { name: dashboards, mountPath: /dashboards }
+      volumes:
+        - { name: data, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
+        - { name: datasources, configMap: { name: grafana-datasources } }
+        - { name: dashboard-provider, configMap: { name: grafana-dashboard-provider } }
+        - name: dashboards
+          projected:
+            sources:
+              - configMap: { name: grafana-dash-node }
+              - configMap: { name: grafana-dash-gpu }
+              - configMap: { name: grafana-dash-pods }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: grafana, namespace: monitoring }
+spec:
+  selector: { app: grafana }
+  ports: [{ name: http, port: 3000, targetPort: 3000 }]

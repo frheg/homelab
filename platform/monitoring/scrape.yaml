@@ -1,0 +1,47 @@
+# What VictoriaMetrics scrapes. The host exporters listen on the tailnet address
+# (dotfiles_nix, modules/monitoring.nix).
+global:
+  scrape_interval: 30s
+scrape_configs:
+  - job_name: node
+    static_configs: [{ targets: ["100.117.102.56:9100"] }]
+  - job_name: gpu
+    static_configs: [{ targets: ["100.117.102.56:9835"] }]
+
+  # kubelet on the node address (the tailnet IP, set by --node-ip)
+  - job_name: kubelet
+    scheme: https
+    tls_config: { insecure_skip_verify: true }
+    authorization: { credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token }
+    kubernetes_sd_configs: [{ role: node }]
+  - job_name: cadvisor
+    scheme: https
+    metrics_path: /metrics/cadvisor
+    tls_config: { insecure_skip_verify: true }
+    authorization: { credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token }
+    kubernetes_sd_configs: [{ role: node }]
+
+  - job_name: kube-state-metrics
+    static_configs: [{ targets: ["kube-state-metrics.monitoring:8080"] }]
+
+  # pods that name their metrics port: Flux controllers (http-prom), Traefik (metrics)
+  - job_name: flux
+    kubernetes_sd_configs: [{ role: pod, namespaces: { names: [flux-system] } }]
+    relabel_configs:
+      - { source_labels: [__meta_kubernetes_pod_container_port_name], regex: http-prom, action: keep }
+      - { source_labels: [__meta_kubernetes_pod_label_app], target_label: controller }
+  - job_name: traefik
+    kubernetes_sd_configs: [{ role: pod, namespaces: { names: [kube-system] } }]
+    relabel_configs:
+      - { source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name, __meta_kubernetes_pod_container_port_name], regex: traefik;metrics, action: keep }
+
+  # the monitoring stack itself
+  - job_name: victoria
+    static_configs: [{ targets: ["victoria.monitoring:8428"] }]
+  - job_name: vmalert
+    static_configs: [{ targets: ["vmalert.monitoring:8880"] }]
+  - job_name: alertmanager
+    static_configs: [{ targets: ["alertmanager.monitoring:9093"] }]
+  - job_name: grafana
+    metrics_path: /grafana/metrics
+    static_configs: [{ targets: ["grafana.monitoring:3000"] }]

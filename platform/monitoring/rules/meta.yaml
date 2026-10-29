@@ -1,0 +1,17 @@
+groups:
+  - name: meta
+    rules:
+      - alert: TargetDown
+        expr: up{job!~"node|gpu"} == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Cannot scrape {{ $labels.job }}", description: "{{ $labels.instance }} has not answered for 5 minutes." }
+      - alert: NotificationsFailing
+        expr: rate(alertmanager_notifications_failed_total[10m]) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Alertmanager cannot deliver alerts", description: "Check the ntfy pod and the token. Alerts are still visible in the panel." }
+      - alert: RuleEvaluationFailing
+        expr: increase(vmalert_execution_errors_total[10m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "vmalert fails to evaluate rules", description: "See the vmalert logs." }

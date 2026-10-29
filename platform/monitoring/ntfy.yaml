@@ -1,0 +1,62 @@
+# Push notifications to the phone (ntfy app, server http://kratos:2586 over the tailnet).
+# Everything is private: default access is deny, users and the token come from the
+# ntfy-auth Secret. Data (message cache, user db) is the plain directory /srv/ntfy.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: ntfy, namespace: monitoring }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: ntfy } }
+  template:
+    metadata:
+      labels: { app: ntfy }
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+        - name: ntfy
+          image: 100.117.102.56:5000/mirror/ntfy@sha256:a97941c47ab7887c5ad9ba5334c6ecec7411d9b10953872a819cbbc4051b96a8 # v2.34.0
+          args: [serve]
+          env:
+            - { name: NTFY_BASE_URL, value: "http://kratos:2586" }
+            - { name: NTFY_LISTEN_HTTP, value: ":8080" }
+            - { name: NTFY_CACHE_FILE, value: /var/lib/ntfy/cache.db }
+            - { name: NTFY_AUTH_FILE, value: /var/lib/ntfy/user.db }
+            - { name: NTFY_AUTH_DEFAULT_ACCESS, value: deny-all }
+            # v1s is admin. alertmanager may only write the alert topic.
+            - { name: NTFY_AUTH_ACCESS, value: "alertmanager:kratos-alerts:write-only" }
+            - name: NTFY_AUTH_USERS
+              valueFrom: { secretKeyRef: { name: ntfy-auth, key: users } }
+            - name: NTFY_AUTH_TOKENS
+              valueFrom: { secretKeyRef: { name: ntfy-auth, key: tokens } }
+          ports: [{ name: http, containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /v1/health, port: 8080 }
+          resources:
+            requests: { cpu: 10m, memory: 32Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/ntfy }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: data
+          hostPath: { path: /srv/ntfy, type: Directory }
+        - name: tmp
+          emptyDir: {}
+---
+# LoadBalancer: the phone reaches it on the host port over the tailnet, like the HomeLab api.
+apiVersion: v1
+kind: Service
+metadata: { name: ntfy, namespace: monitoring }
+spec:
+  type: LoadBalancer
+  selector: { app: ntfy }
+  ports: [{ name: http, port: 2586, targetPort: 8080 }]

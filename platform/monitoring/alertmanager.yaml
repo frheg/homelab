@@ -1,0 +1,17 @@
+# One receiver: the ntfy topic. ntfy's built-in alertmanager template turns the
+# webhook into a push. The token (write only, this topic) comes from the ntfy-auth Secret.
+route:
+  receiver: ntfy
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+receivers:
+  - name: ntfy
+    webhook_configs:
+      - url: http://ntfy:2586/kratos-alerts?template=alertmanager
+        send_resolved: true
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: /secrets/token

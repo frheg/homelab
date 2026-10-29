@@ -1,0 +1,78 @@
+# Time series database and scraper in one program. Data is a plain directory,
+# /srv/victoria, kept 90 days.
+apiVersion: v1
+kind: ServiceAccount
+metadata: { name: victoria, namespace: monitoring }
+---
+# Read-only discovery of nodes and pods, and the kubelet metrics endpoints.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: { name: victoria }
+rules:
+  - apiGroups: [""]
+    resources: [nodes, nodes/metrics, pods]
+    verbs: [get, list, watch]
+  - nonResourceURLs: [/metrics, /metrics/cadvisor]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: { name: victoria }
+roleRef: { apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: victoria }
+subjects:
+  - { kind: ServiceAccount, name: victoria, namespace: monitoring }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: victoria, namespace: monitoring }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: victoria } }
+  template:
+    metadata:
+      labels: { app: victoria }
+    spec:
+      serviceAccountName: victoria
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+      containers:
+        - name: victoria
+          image: 100.117.102.56:5000/mirror/victoria-metrics@sha256:5297c6d688a79008911767193267067836f1cc769ecb05a9e0f7e057490b35ca # v1.154.1
+          args:
+            - -storageDataPath=/storage
+            - -retentionPeriod=90d
+            - -promscrape.config=/config/scrape.yaml
+            - -promscrape.config.strictParse
+            - -selfScrapeInterval=0
+          ports: [{ name: http, containerPort: 8428 }]
+          readinessProbe:
+            httpGet: { path: /health, port: 8428 }
+          livenessProbe:
+            httpGet: { path: /health, port: 8428 }
+            initialDelaySeconds: 30
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { memory: 1Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /storage }
+            - { name: config, mountPath: /config }
+      volumes:
+        - name: data
+          hostPath: { path: /srv/victoria, type: Directory }
+        - name: config
+          configMap: { name: vm-scrape }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: victoria, namespace: monitoring }
+spec:
+  selector: { app: victoria }
+  ports: [{ name: http, port: 8428, targetPort: 8428 }]
