@@ -14,6 +14,8 @@ import (
 func main() {
 	addr := flag.String("addr", ":8080", "listen address")
 	gpuctl := flag.String("gpuctl", "http://gpuctl.gpu-system", "gpuctl address")
+	victoria := flag.String("victoria", "", "VictoriaMetrics address, for GPU numbers (empty: off)")
+	alertmanager := flag.String("alertmanager", "", "Alertmanager address, for firing alerts (empty: off)")
 	flag.Parse()
 
 	cfg, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
@@ -26,5 +28,5 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Printf("panel on %s, gpuctl %s", *addr, *gpuctl)
-	log.Fatal(http.ListenAndServe(*addr, New(cs, *gpuctl).Handler()))
+	log.Fatal(http.ListenAndServe(*addr, New(cs, *gpuctl).WithMonitoring(*victoria, *alertmanager).Handler()))
 }

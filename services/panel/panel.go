@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +31,7 @@ const (
 type Panel struct {
 	cs  kubernetes.Interface
 	gpu gpuClient
+	mon *monitorClient // nil: monitoring not configured
 
 	mu   sync.Mutex
 	last string // result of the latest action, lost on restart
@@ -37,6 +39,14 @@ type Panel struct {
 
 func New(cs kubernetes.Interface, gpuctl string) *Panel {
 	return &Panel{cs: cs, gpu: gpuClient{base: gpuctl, hc: &http.Client{}}}
+}
+
+// WithMonitoring adds GPU numbers and firing alerts to the state. Empty addresses leave it off.
+func (p *Panel) WithMonitoring(victoria, alertmanager string) *Panel {
+	if victoria != "" && alertmanager != "" {
+		p.mon = &monitorClient{victoria: victoria, alertmanager: alertmanager, hc: &http.Client{}}
+	}
+	return p
 }
 
 func (p *Panel) Handler() http.Handler {
@@ -82,19 +92,37 @@ type profileView struct {
 }
 
 type stateView struct {
-	GPU       json.RawMessage `json:"gpu,omitempty"`
-	GPUError  string          `json:"gpu_error,omitempty"`
-	Consumers []string        `json:"consumers"`
-	Profiles  []profileView   `json:"profiles"`
-	Error     string          `json:"error,omitempty"`
-	Last      string          `json:"last"`
+	GPU             json.RawMessage `json:"gpu,omitempty"`
+	GPUError        string          `json:"gpu_error,omitempty"`
+	GPUMetrics      *gpuMetrics     `json:"gpu_metrics,omitempty"`
+	Alerts          []alertView     `json:"alerts"`
+	AlertsFiring    int             `json:"alerts_firing"`
+	MonitoringError string          `json:"monitoring_error,omitempty"`
+	Consumers       []string        `json:"consumers"`
+	Profiles        []profileView   `json:"profiles"`
+	Error           string          `json:"error,omitempty"`
+	Last            string          `json:"last"`
 }
 
 func (p *Panel) state(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	v := stateView{Consumers: []string{}, Profiles: []profileView{}, Last: p.lastResult()}
+	v := stateView{Consumers: []string{}, Profiles: []profileView{}, Alerts: []alertView{}, Last: p.lastResult()}
 	var err error
+	if p.mon != nil {
+		mctx, mcancel := context.WithTimeout(ctx, 4*time.Second)
+		defer mcancel()
+		var gerr, aerr error
+		v.GPUMetrics, gerr = p.mon.gpu(mctx)
+		if v.Alerts, aerr = p.mon.alerts(mctx); aerr == nil {
+			v.AlertsFiring = len(v.Alerts)
+		} else {
+			v.Alerts = []alertView{}
+		}
+		if err := errors.Join(gerr, aerr); err != nil {
+			v.MonitoringError = err.Error()
+		}
+	}
 	if v.GPU, err = p.gpu.status(ctx); err != nil {
 		v.GPUError = err.Error()
 	}

@@ -224,3 +224,77 @@ func TestPageIsServed(t *testing.T) {
 		t.Fatalf("code=%d", w.Code)
 	}
 }
+
+// fakeMonitoring answers like VictoriaMetrics (instant queries) and Alertmanager (v2 alerts).
+func fakeMonitoring(t *testing.T, alerts string, missing string) (vm, am string) {
+	t.Helper()
+	v := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get("query")
+		if q == missing {
+			w.Write([]byte(`{"status":"success","data":{"result":[]}}`))
+			return
+		}
+		val := map[string]string{
+			"nvidia_smi_memory_used_bytes":     "7.5e9",
+			"nvidia_smi_memory_total_bytes":    "1.7e10",
+			"nvidia_smi_temperature_gpu":       "52",
+			"nvidia_smi_power_draw_watts":      "88.5",
+			"nvidia_smi_utilization_gpu_ratio": "0.4",
+		}[q]
+		w.Write([]byte(`{"status":"success","data":{"result":[{"metric":{},"value":[1,"` + val + `"]}]}}`))
+	}))
+	a := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v2/alerts" || r.URL.Query().Get("silenced") != "false" {
+			t.Errorf("unexpected request %s", r.URL.String())
+		}
+		w.Write([]byte(alerts))
+	}))
+	t.Cleanup(v.Close)
+	t.Cleanup(a.Close)
+	return v.URL, a.URL
+}
+
+func TestStateCarriesGPUNumbersAndAlertsWorstFirst(t *testing.T) {
+	_, gpu := newFakeGPU(t)
+	vm, am := fakeMonitoring(t, `[
+	  {"labels":{"alertname":"DiskAlmostFull","severity":"warning"},"annotations":{"summary":"Root disk under 15% free"}},
+	  {"labels":{"alertname":"NodeDown","severity":"critical"},"annotations":{"summary":"host metrics are gone"}}]`, "")
+	h := New(cluster(), gpu).WithMonitoring(vm, am).Handler()
+	var s stateView
+	json.Unmarshal(do(h, "GET", "/api/state", nil).Body.Bytes(), &s)
+	if s.GPUMetrics == nil || s.GPUMetrics.TempC != 52 || s.GPUMetrics.MemUsedBytes != 7.5e9 || s.GPUMetrics.PowerW != 88.5 {
+		t.Fatalf("gpu metrics = %+v", s.GPUMetrics)
+	}
+	if s.AlertsFiring != 2 || s.Alerts[0].Name != "NodeDown" || s.Alerts[1].Summary != "Root disk under 15% free" {
+		t.Fatalf("alerts = %+v", s.Alerts)
+	}
+	if s.MonitoringError != "" {
+		t.Fatalf("error = %q", s.MonitoringError)
+	}
+}
+
+func TestMissingGPUMetricIsAnErrorNotACrash(t *testing.T) {
+	_, gpu := newFakeGPU(t)
+	vm, am := fakeMonitoring(t, `[]`, "nvidia_smi_temperature_gpu")
+	h := New(cluster(), gpu).WithMonitoring(vm, am).Handler()
+	var s stateView
+	w := do(h, "GET", "/api/state", nil)
+	json.Unmarshal(w.Body.Bytes(), &s)
+	if w.Code != 200 || s.GPUMetrics != nil || !strings.Contains(s.MonitoringError, "no data") || len(s.Profiles) != 1 {
+		t.Fatalf("code=%d state=%s", w.Code, w.Body.String())
+	}
+	if s.Alerts == nil || s.AlertsFiring != 0 {
+		t.Fatalf("alerts must still be an empty list: %+v", s.Alerts)
+	}
+}
+
+func TestMonitoringDownLeavesThePanelWorking(t *testing.T) {
+	_, gpu := newFakeGPU(t)
+	h := New(cluster(), gpu).WithMonitoring("http://127.0.0.1:1", "http://127.0.0.1:1").Handler()
+	var s stateView
+	w := do(h, "GET", "/api/state", nil)
+	json.Unmarshal(w.Body.Bytes(), &s)
+	if w.Code != 200 || s.MonitoringError == "" || len(s.Consumers) != 2 {
+		t.Fatalf("code=%d state=%s", w.Code, w.Body.String())
+	}
+}

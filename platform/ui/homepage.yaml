@@ -20,6 +20,8 @@ data:
                   label: GPU holder
                 - field: gpu.reserved_by
                   label: Reserved by
+                - field: alerts_firing
+                  label: Alerts firing
     - Cluster:
         - Headlamp:
             href: /headlamp/

@@ -123,3 +123,6 @@ and only Traefik and the Homepage widget may reach the pod (NetworkPolicy).
 Changes are POST only and need an `X-Panel` header and a same-host Origin.
 "use <consumer>" is `gpuctl acquire` with a 30 minute lease, it returns at once and the
 page shows the result. The whole `platform-ui` namespace is labelled `gpu.kratos/access`.
+
+The panel also shows the card (VRAM, temperature, power, load) and the alerts firing now.
+Both come from the monitoring stack (docs/monitoring.md); if it is down the panel still works.

@@ -12,6 +12,7 @@ Metrics, alerts and dashboards. Nothing here needs a login beyond the UI basic-a
 | vmalert + Alertmanager | alerting.yaml, rules/ | evaluate rules, group alerts |
 | ntfy | ntfy.yaml | push to the phone, tailnet only, port 2586 |
 | Grafana | grafana.yaml | dashboards at http://kratos/grafana/ |
+| panel | platform/ui/panel.yaml | shows the GPU numbers and firing alerts next to the buttons |
 
 What is scraped is in `scrape.yaml`. Rules are in `rules/*.yaml`, one file per area.
 Dashboards are files in `dashboards/` (community dashboards, nothing is edited in the UI).

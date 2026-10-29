@@ -4,3 +4,4 @@ metadata:
   name: platform-ui
   labels:
     gpu.kratos/access: "true" # the panel talks to gpuctl
+    monitoring.kratos/access: "true" # the panel reads GPU numbers and alerts

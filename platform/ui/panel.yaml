@@ -39,8 +39,11 @@ spec:
         runAsUser: 65534
       containers:
         - name: panel
-          image: 100.117.102.56:5000/panel@sha256:16215ec666c1884b27bb69f92a4f565af66fbe273f611ada920a3e4d662c3d76
-          args: ["-gpuctl", "http://gpuctl.gpu-system"]
+          image: 100.117.102.56:5000/panel@sha256:ac4265488331595730d740b9e0cdbc47fb461f5ca7666dd2aae5622046748286
+          args:
+            - -gpuctl=http://gpuctl.gpu-system
+            - -victoria=http://victoria.monitoring:8428
+            - -alertmanager=http://alertmanager.monitoring:9093
           ports: [{ containerPort: 8080 }]
           readinessProbe:
             httpGet: { path: /, port: 8080 }

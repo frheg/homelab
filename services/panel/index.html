@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>kratos panel</title>
 <style>
-  :root { --bg: #f6f6f4; --fg: #1d1d1b; --mute: #6b6b66; --card: #fff; --line: #dcdcd6; --acc: #1f6f5c; --bad: #a33a2a; }
+  :root { --bg: #f6f6f4; --fg: #1d1d1b; --mute: #6b6b66; --card: #fff; --line: #dcdcd6; --acc: #1f6f5c; --bad: #a33a2a; --warn: #8a6a00; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #161615; --fg: #e8e8e3; --mute: #9a9a92; --card: #1f1f1d; --line: #34342f; --acc: #4fb59c; --bad: #e0705e; }
+    :root { --bg: #161615; --fg: #e8e8e3; --mute: #9a9a92; --card: #1f1f1d; --line: #34342f; --acc: #4fb59c; --bad: #e0705e; --warn: #d9b44a; }
   }
   * { box-sizing: border-box; }
   body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, sans-serif; }
@@ -29,11 +29,13 @@
   details div { font-family: ui-monospace, monospace; }
   #msg { color: var(--mute); font-size: 13px; min-height: 1.4em; }
   #msg.bad, .bad { color: var(--bad); }
+  .warn { color: var(--warn); }
 </style>
 </head>
 <body>
 <main>
   <h1>kratos</h1>
+  <section id="alerts"><h2>Alerts</h2><div id="alert-body"></div></section>
   <section id="gpu"><h2>GPU</h2><div id="gpu-body"></div></section>
   <section id="profiles"><h2>Profiles</h2><div id="prof-body"></div></section>
   <div id="msg"></div>
@@ -83,17 +85,31 @@ function setMsg(text, bad) {
   m.className = bad ? "bad" : "";
 }
 
+function renderAlerts(s) {
+  const body = document.getElementById("alert-body");
+  if (s.monitoring_error && !s.alerts.length) { body.replaceChildren(h("div", { class: "bad" }, "monitoring: " + s.monitoring_error)); return; }
+  if (!s.alerts.length) { body.replaceChildren(h("div", {}, "none firing")); return; }
+  body.replaceChildren(...s.alerts.map(a =>
+    h("div", { class: a.severity === "critical" ? "bad" : "warn" }, `${a.severity || "alert"}: ${a.name}`, a.summary ? " - " + a.summary : "")));
+}
+
+function gb(bytes) { return (bytes / 1e9).toFixed(1); }
+
 function renderGPU(s) {
   const body = document.getElementById("gpu-body");
   if (s.gpu_error) { body.replaceChildren(h("div", { class: "bad" }, "gpuctl: " + s.gpu_error)); return; }
   const g = s.gpu;
+  const m = s.gpu_metrics;
   const reserved = !!g.reserved_by;
   const forSel = h("select", { onchange: () => { forValue = forSel.value; } },
     ["1h", "2h", "4h", "8h", ""].map(v => h("option", { value: v, selected: v === forValue }, v || "until released")));
   const kv = h("div", { class: "kv" },
     h("span", {}, "holder"), h("span", {}, g.holder || "nobody"),
     h("span", {}, "lease"), h("span", {}, g.lease_until && clock(g.lease_until) ? "until " + clock(g.lease_until) : "none"),
-    h("span", {}, "reserved"), h("span", {}, reserved ? g.reserved_by + (clock(g.reserved_until) ? " until " + clock(g.reserved_until) : " until released") : "no"));
+    h("span", {}, "reserved"), h("span", {}, reserved ? g.reserved_by + (clock(g.reserved_until) ? " until " + clock(g.reserved_until) : " until released") : "no"),
+    h("span", {}, "card"), h("span", {}, m
+      ? `${gb(m.mem_used_bytes)} / ${gb(m.mem_total_bytes)} GB, ${Math.round(m.temp_c)} C, ${Math.round(m.power_w)} W, ${Math.round(m.util * 100)}% busy`
+      : "no metrics"));
   const reserveRow = reserved
     ? h("div", { class: "row" }, h("button", { class: "go", disabled: busy, onclick: () => act("api/gpu/unreserve") }, "Release reservation"))
     : h("div", { class: "row" }, forSel,
@@ -131,6 +147,7 @@ async function load() {
   try {
     const r = await fetch("api/state");
     const s = await r.json();
+    renderAlerts(s);
     renderGPU(s);
     renderProfiles(s);
     if (!busy && s.last) setMsg(s.last);
