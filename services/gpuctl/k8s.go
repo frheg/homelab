@@ -102,7 +102,7 @@ func (k *kube) WaitGone(ctx context.Context, consumer string) error {
 		if err != nil {
 			return false, err
 		}
-		return len(l.Items) == 0, nil
+		return !anyHoldsGPU(l.Items), nil
 	})
 }
 
@@ -184,4 +184,16 @@ func (k *kube) Save(ctx context.Context, s State) error {
 	cm.Data = map[string]string{"state": string(raw)}
 	_, err = cms.Update(ctx, cm, metav1.UpdateOptions{})
 	return err
+}
+
+// anyHoldsGPU is true if a pod may still hold the GPU. Finished pods
+// (Succeeded or Failed) hold nothing, but their objects can stay around.
+// A pod being deleted is still Running until its containers exit, so it counts.
+func anyHoldsGPU(pods []corev1.Pod) bool {
+	for _, p := range pods {
+		if p.Status.Phase != corev1.PodSucceeded && p.Status.Phase != corev1.PodFailed {
+			return true
+		}
+	}
+	return false
 }

@@ -2,7 +2,7 @@
 # usage: scripts/push <service> [tag]  build the image with nix, push it, print the digest
 set -eu
 svc=$1
-tag=${2:-$(git rev-parse --short HEAD)}
+tag=${2:-$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . || echo -dirty)}
 reg=${REGISTRY:-100.117.102.56:5000}
 nix build ".#image-$svc" -o "result-$svc"
 nix shell nixpkgs#skopeo -c skopeo --insecure-policy copy --dest-tls-verify=false "docker-archive:result-$svc" "docker://$reg/$svc:$tag"

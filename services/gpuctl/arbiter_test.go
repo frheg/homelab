@@ -343,3 +343,34 @@ func TestStartKeepsReservation(t *testing.T) {
 		t.Fatalf("running = %v", running(f))
 	}
 }
+
+// blockingCluster never finishes WaitGone until its context ends.
+type blockingCluster struct{ *fakeCluster }
+
+func (b blockingCluster) WaitGone(ctx context.Context, c string) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func TestReserveGivesUpAfterSwitchTimeout(t *testing.T) {
+	f := newFake("thesis", "homelab")
+	c := cfg
+	c.SwitchTimeout = 50 * time.Millisecond
+	a := NewArbiter(c, blockingCluster{f}, &memStore{})
+	done := make(chan error, 1)
+	go func() { done <- a.Reserve(context.Background(), "v1s", 0) }()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("want an error when pods do not go away")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Reserve did not return, it must obey SwitchTimeout")
+	}
+	if a.Status().ReservedBy != "v1s" {
+		t.Fatal("reservation should still be recorded")
+	}
+	if _, err := a.Acquire(context.Background(), "homelab", time.Minute); err == nil {
+		t.Fatal("acquire must be refused while reserved")
+	}
+}

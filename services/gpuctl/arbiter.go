@@ -136,6 +136,7 @@ func (a *Arbiter) Release(ctx context.Context, name string) error {
 func (a *Arbiter) Reserve(ctx context.Context, by string, d time.Duration) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	ctx = context.WithoutCancel(ctx)
 	s := State{Since: a.now(), ReservedBy: by}
 	if d > 0 {
 		s.ReservedUntil = a.now().Add(d)
@@ -231,6 +232,8 @@ func (a *Arbiter) bring(ctx context.Context, name string) error {
 }
 
 func (a *Arbiter) stopOthers(ctx context.Context, keep string) error {
+	ctx, cancel := context.WithTimeout(ctx, a.cfg.SwitchTimeout)
+	defer cancel()
 	all, err := a.cl.Consumers(ctx)
 	if err != nil {
 		return fmt.Errorf("list consumers: %w", err)
