@@ -46,7 +46,13 @@ Send a test alert:
 - New scrape target: edit `scrape.yaml`. A changed file gets a new ConfigMap name, so the pod restarts.
 - Another namespace may query the APIs when labelled `monitoring.kratos/access=true`.
 
-## Pitfall
+## Pitfalls
+
+Pod memory has one shared kernel limit: RAM minus kubeReserved and systemReserved (modules/k3s.nix
+in dotfiles_nix, about 26Gi). A pod limit above it never applies; at the shared limit the kernel
+kills processes in any pod (2026-10-29: strata took the whole cluster down). Keep pod limits
+below it. `PodMemoryNearLimit` warns at 90%.
+
 
 VictoriaMetrics counts the first sample of a new series as growth in `increase()` and `changes()`.
 After a fresh start every restart counter looks like a burst of restarts and floods the phone.

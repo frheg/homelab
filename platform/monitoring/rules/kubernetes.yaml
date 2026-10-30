@@ -15,6 +15,12 @@ groups:
         expr: (kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1) and on (namespace, pod, container) (kube_pod_container_status_restarts_total - (kube_pod_container_status_restarts_total offset 15m) > 0)
         labels: { severity: warning }
         annotations: { summary: "{{ $labels.namespace }}/{{ $labels.pod }} was OOM killed", description: "Container {{ $labels.container }} hit its memory limit." }
+      # All pods share one kernel limit (allocatable). At the limit the kernel kills across pods.
+      - alert: PodMemoryNearLimit
+        expr: container_memory_working_set_bytes{id="/kubepods.slice"} / on () group_left () sum(kube_node_status_allocatable{resource="memory"}) > 0.9
+        for: 2m
+        labels: { severity: warning }
+        annotations: { summary: "Pods use over 90% of the pod memory limit", description: "{{ $value | humanizePercentage }} used. At 100% the kernel kills processes in any pod." }
       # GPU consumers are scaled to 0 by gpuctl, so only Deployments that want pods count.
       # 30 minutes covers the slowest start (strata, 25 minutes).
       - alert: DeploymentUnavailable

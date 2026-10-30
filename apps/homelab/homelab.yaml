@@ -215,7 +215,7 @@ spec:
             failureThreshold: 120
           resources:
             requests: { cpu: "1", memory: 8Gi }
-            limits: { memory: 28Gi, nvidia.com/gpu-0: "1" }
+            limits: { memory: 22Gi, nvidia.com/gpu-0: "1" } # below the pod total (~26Gi): a runaway kills only strata
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ALL], add: [IPC_LOCK] }
