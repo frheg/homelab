@@ -40,9 +40,11 @@ spec:
             - name: NEO4J_AUTH
               valueFrom: { secretKeyRef: { name: neo4j, key: NEO4J_AUTH } }
             - { name: NEO4J_PLUGINS, value: '["apoc"]' }
-            - { name: NEO4J_server_memory_heap_initial__size, value: 6G }
-            - { name: NEO4J_server_memory_heap_max__size, value: 14G }
-            - { name: NEO4J_server_memory_pagecache_size, value: 4G }
+            # heap + page cache + about 1G stays under the limit below. Pods share one
+            # memory limit with strata (docs/monitoring.md), so keep this small.
+            - { name: NEO4J_server_memory_heap_initial__size, value: 2G }
+            - { name: NEO4J_server_memory_heap_max__size, value: 4G }
+            - { name: NEO4J_server_memory_pagecache_size, value: 3G }
           ports:
             - { name: http, containerPort: 7474 }
             - { name: bolt, containerPort: 7687 }
@@ -54,8 +56,8 @@ spec:
             httpGet: { path: /, port: 7474 }
             periodSeconds: 15
           resources:
-            requests: { cpu: 500m, memory: 8Gi }
-            limits: { memory: 20Gi }
+            requests: { cpu: 500m, memory: 4Gi }
+            limits: { memory: 9Gi }
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ALL] }
