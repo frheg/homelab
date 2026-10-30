@@ -115,6 +115,9 @@ the GPU for that consumer by itself (gpuproxy asks gpuctl), then forwards the re
 If you reserved the GPU or another consumer has an active lease, the call returns 503
 with `Retry-After: 30` and the reason in the body.
 
+Neo4j stops while strata holds the GPU (they do not fit in RAM together) and starts again
+afterwards. Do not start it by hand in between: gpuctl stops it again within seconds.
+
 ## The panel
 
 `/panel/` (services/panel) has the same operations as `gpuctl` and `profctl`, as buttons.

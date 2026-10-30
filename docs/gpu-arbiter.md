@@ -34,6 +34,15 @@ isolation, so two big models crash each other. One program must say who holds it
 
 Priority: reservation, then active lease, then default.
 
+## Yielding
+
+A Deployment labelled `gpu.kratos/yields-to=<consumer>` (pod template too) must not run while
+that consumer holds the GPU. It competes for RAM: neo4j yields to strata, as the pods share one
+memory limit. When the consumer is about to start, gpuctl scales the Deployment to 0, keeps its
+replicas in the annotation `gpu.kratos/paused-replicas` and waits until its pods are gone. It
+runs again once the consumer has stopped, also during a reservation. A tick pauses it again if
+someone starts it by hand while the consumer holds. If the pause fails, the consumer does not start.
+
 ## State
 
 One ConfigMap `gpu-state`: holder, lease_until, reserved_by, reserved_until.

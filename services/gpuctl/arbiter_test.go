@@ -15,6 +15,8 @@ type fakeCluster struct {
 	ops          []string
 	stuck        map[string]bool // WaitGone fails
 	notReady     map[string]bool // WaitReady fails
+	yops         []string        // pause and resume calls, apart from ops
+	pauseFails   bool
 }
 
 func newFake(names ...string) *fakeCluster {
@@ -450,5 +452,87 @@ func TestStartTimeoutNeverShortensTheGlobalLimit(t *testing.T) {
 	a := NewArbiter(cfg, f, &memStore{})
 	if got := a.readyTimeout(context.Background(), "bench"); got != cfg.SwitchTimeout {
 		t.Fatalf("readyTimeout = %v, want %v", got, cfg.SwitchTimeout)
+	}
+}
+
+func (f *fakeCluster) Pause(_ context.Context, c string) error {
+	f.yops = append(f.yops, "pause "+c)
+	if f.pauseFails {
+		return errors.New("pods still terminating")
+	}
+	return nil
+}
+
+func (f *fakeCluster) Resume(_ context.Context, c string) error {
+	f.yops = append(f.yops, "resume "+c)
+	return nil
+}
+
+func TestYieldersPausedBeforeHolderStarts(t *testing.T) {
+	a, f, _, ck := setup("thesis", "homelab")
+	ctx := context.Background()
+	a.Tick(ctx)
+	ck.add(5 * time.Minute)
+	f.ops, f.yops = nil, nil
+	if _, err := a.Acquire(ctx, "homelab", time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	// thesis stops and its yielders resume, then homelab's yielders pause, then homelab starts.
+	want := []string{"resume thesis", "pause homelab"}
+	if len(f.yops) != 2 || f.yops[0] != want[0] || f.yops[1] != want[1] {
+		t.Fatalf("yops = %v, want %v", f.yops, want)
+	}
+	if len(f.ops) != 2 || f.ops[1] != "scale homelab 1" {
+		t.Fatalf("ops = %v", f.ops)
+	}
+}
+
+func TestFailedPauseStopsTheSwitch(t *testing.T) {
+	a, f, st, ck := setup("thesis", "homelab")
+	ctx := context.Background()
+	a.Tick(ctx)
+	ck.add(5 * time.Minute)
+	f.pauseFails = true
+	f.ops = nil
+	if _, err := a.Acquire(ctx, "homelab", time.Minute); err == nil {
+		t.Fatal("want an error when the RAM could not be freed")
+	}
+	for _, o := range f.ops {
+		if o == "scale homelab 1" {
+			t.Fatalf("homelab started although its yielders still run: %v", f.ops)
+		}
+	}
+	if st.s.Holder != "" {
+		t.Fatalf("holder = %q, want nobody", st.s.Holder)
+	}
+}
+
+func TestTickPausesYieldersOfTheHolderAndResumesTheRest(t *testing.T) {
+	a, f, _, _ := setup("thesis", "homelab")
+	ctx := context.Background()
+	a.Tick(ctx)
+	f.yops = nil
+	a.Tick(ctx)
+	want := map[string]bool{"pause thesis": true, "resume homelab": true}
+	if len(f.yops) != 2 || !want[f.yops[0]] || !want[f.yops[1]] {
+		t.Fatalf("yops = %v", f.yops)
+	}
+}
+
+func TestReserveResumesEveryYielder(t *testing.T) {
+	a, f, _, ck := setup("thesis", "homelab")
+	ctx := context.Background()
+	a.Tick(ctx)
+	ck.add(5 * time.Minute)
+	f.yops = nil
+	if err := a.Reserve(ctx, "me", time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, o := range f.yops {
+		got[o] = true
+	}
+	if !got["resume thesis"] || !got["resume homelab"] || got["pause thesis"] || got["pause homelab"] {
+		t.Fatalf("yops = %v", f.yops)
 	}
 }

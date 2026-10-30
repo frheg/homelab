@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -239,4 +240,78 @@ func (k *kube) StartTimeout(ctx context.Context, consumer string) (time.Duration
 		}
 	}
 	return longest, nil
+}
+
+// yieldLabel marks a Deployment that must not run while the named consumer
+// holds the GPU, because it competes for RAM. Set it on the pod template too.
+const yieldLabel = "gpu.kratos/yields-to"
+
+// pausedAnnotation remembers the replicas of a Deployment that was paused.
+const pausedAnnotation = "gpu.kratos/paused-replicas"
+
+func (k *kube) yielders(ctx context.Context, consumer string) ([]appsv1.Deployment, error) {
+	l, err := k.cs.AppsV1().Deployments(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+		LabelSelector: yieldLabel + "=" + consumer,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return l.Items, nil
+}
+
+// Pause scales the Deployments that yield to consumer to 0 and waits until
+// their pods are gone, so the RAM is free. It remembers the replicas.
+func (k *kube) Pause(ctx context.Context, consumer string) error {
+	ds, err := k.yielders(ctx, consumer)
+	if err != nil {
+		return err
+	}
+	if len(ds) == 0 {
+		return nil
+	}
+	for _, d := range ds {
+		n := int32(1)
+		if d.Spec.Replicas != nil {
+			n = *d.Spec.Replicas
+		}
+		if n == 0 {
+			continue
+		}
+		patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{%q:"%d"}},"spec":{"replicas":0}}`, pausedAnnotation, n))
+		if _, err := k.cs.AppsV1().Deployments(d.Namespace).Patch(ctx, d.Name, types.MergePatchType, patch, metav1.PatchOptions{}); err != nil {
+			return fmt.Errorf("pause %s/%s: %w", d.Namespace, d.Name, err)
+		}
+	}
+	return poll(ctx, func() (bool, error) {
+		l, err := k.cs.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
+			LabelSelector: yieldLabel + "=" + consumer,
+		})
+		if err != nil {
+			return false, err
+		}
+		return !anyHoldsGPU(l.Items), nil
+	})
+}
+
+// Resume starts the Deployments that Pause stopped, at their saved replicas.
+// One that someone started by hand in the meantime is left running.
+func (k *kube) Resume(ctx context.Context, consumer string) error {
+	ds, err := k.yielders(ctx, consumer)
+	if err != nil {
+		return err
+	}
+	for _, d := range ds {
+		saved, ok := d.Annotations[pausedAnnotation]
+		if !ok {
+			continue
+		}
+		patch := fmt.Sprintf(`{"metadata":{"annotations":{%q:null}}}`, pausedAnnotation)
+		if n, err := strconv.Atoi(saved); err == nil && n > 0 && d.Spec.Replicas != nil && *d.Spec.Replicas == 0 {
+			patch = fmt.Sprintf(`{"metadata":{"annotations":{%q:null}},"spec":{"replicas":%d}}`, pausedAnnotation, n)
+		}
+		if _, err := k.cs.AppsV1().Deployments(d.Namespace).Patch(ctx, d.Name, types.MergePatchType, []byte(patch), metav1.PatchOptions{}); err != nil {
+			return fmt.Errorf("resume %s/%s: %w", d.Namespace, d.Name, err)
+		}
+	}
+	return nil
 }

@@ -17,12 +17,14 @@ kind: Deployment
 metadata:
   name: neo4j
   namespace: neo4j
+  # gpuctl stops this while strata holds the GPU (RAM), and starts it again after.
+  labels: { gpu.kratos/yields-to: strata }
 spec:
   strategy: { type: Recreate }
   selector: { matchLabels: { app: neo4j } }
   template:
     metadata:
-      labels: { app: neo4j }
+      labels: { app: neo4j, gpu.kratos/yields-to: strata }
     spec:
       enableServiceLinks: false
       # a large database can need minutes to recover after an unclean stop
@@ -43,8 +45,8 @@ spec:
             # heap + page cache + about 1G stays under the limit below. Pods share one
             # memory limit with strata (docs/monitoring.md), so keep this small.
             - { name: NEO4J_server_memory_heap_initial__size, value: 2G }
-            - { name: NEO4J_server_memory_heap_max__size, value: 4G }
-            - { name: NEO4J_server_memory_pagecache_size, value: 3G }
+            - { name: NEO4J_server_memory_heap_max__size, value: 3G }
+            - { name: NEO4J_server_memory_pagecache_size, value: 2G }
           ports:
             - { name: http, containerPort: 7474 }
             - { name: bolt, containerPort: 7687 }
@@ -56,8 +58,8 @@ spec:
             httpGet: { path: /, port: 7474 }
             periodSeconds: 15
           resources:
-            requests: { cpu: 500m, memory: 4Gi }
-            limits: { memory: 9Gi }
+            requests: { cpu: 500m, memory: 3Gi }
+            limits: { memory: 6Gi }
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: [ALL] }

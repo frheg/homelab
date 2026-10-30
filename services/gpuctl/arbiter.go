@@ -16,6 +16,9 @@ type Cluster interface {
 	StartTimeout(ctx context.Context, consumer string) (time.Duration, error) // from the gpu.kratos/start-timeout annotation, 0 if unset
 	WaitGone(ctx context.Context, consumer string) error                      // no pods left, even terminating
 	WaitReady(ctx context.Context, consumer string) error                     // all pods ready
+	// Workloads labelled gpu.kratos/yields-to=<consumer> must not run while it holds the GPU (RAM).
+	Pause(ctx context.Context, consumer string) error  // stop them, wait until their pods are gone
+	Resume(ctx context.Context, consumer string) error // start those that Pause stopped
 }
 
 type Config struct {
@@ -223,6 +226,13 @@ func (a *Arbiter) bring(ctx context.Context, name string) error {
 	if err := a.stopOthers(ctx, name); err != nil {
 		return err
 	}
+	// A database can need a while to stop cleanly, so allow more than a plain switch step.
+	pctx, cancel := context.WithTimeout(ctx, 2*a.cfg.SwitchTimeout)
+	err := a.cl.Pause(pctx, name)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("pause what yields to %s: %w", name, err)
+	}
 	if err := a.cl.Scale(ctx, name, 1); err != nil {
 		return fmt.Errorf("start %s: %w", name, err)
 	}
@@ -266,6 +276,10 @@ func (a *Arbiter) stopOthers(ctx context.Context, keep string) error {
 		if err := a.cl.WaitGone(ctx, c); err != nil {
 			return fmt.Errorf("wait gone %s: %w", c, err)
 		}
+		// Its RAM is free, so what yielded to it may run again. A failure here must not block the switch.
+		if err := a.cl.Resume(ctx, c); err != nil {
+			log.Printf("resume what yielded to %s: %v", c, err)
+		}
 	}
 	return nil
 }
@@ -294,7 +308,14 @@ func (a *Arbiter) enforce(ctx context.Context) {
 	}
 	for _, c := range all {
 		if c == holder {
+			// someone may have started what yields to the holder
+			if err := a.cl.Pause(ctx, c); err != nil {
+				log.Printf("enforce: pause what yields to %s: %v", c, err)
+			}
 			continue
+		}
+		if err := a.cl.Resume(ctx, c); err != nil {
+			log.Printf("enforce: resume what yielded to %s: %v", c, err)
 		}
 		n, err := a.cl.Replicas(ctx, c)
 		if err != nil {
