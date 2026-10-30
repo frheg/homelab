@@ -23,6 +23,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("kubeconfig: %v", err)
 	}
+	// One state call lists every profile namespace; the default 5 qps starves it.
+	cfg.QPS, cfg.Burst = 50, 100
 	cs, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		log.Fatal(err)

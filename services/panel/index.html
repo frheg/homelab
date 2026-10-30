@@ -143,7 +143,11 @@ function renderProfiles(s) {
   }));
 }
 
+let loading = false;
+
 async function load() {
+  if (loading) return; // a slow answer must not pile up requests
+  loading = true;
   try {
     const r = await fetch("api/state");
     const s = await r.json();
@@ -154,6 +158,7 @@ async function load() {
   } catch (e) {
     setMsg(String(e), true);
   }
+  loading = false;
 }
 
 load();

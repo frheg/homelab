@@ -39,7 +39,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: panel
-          image: 100.117.102.56:5000/panel@sha256:ac4265488331595730d740b9e0cdbc47fb461f5ca7666dd2aae5622046748286
+          image: 100.117.102.56:5000/panel@sha256:0613c772c4a8972e1c2510433db91054f109ba03f3d80db6367ae8370667e0fd
           args:
             - -gpuctl=http://gpuctl.gpu-system
             - -victoria=http://victoria.monitoring:8428
