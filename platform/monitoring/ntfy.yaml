@@ -19,7 +19,7 @@ spec:
         runAsGroup: 65534
       containers:
         - name: ntfy
-          image: 100.117.102.56:5000/mirror/ntfy@sha256:a97941c47ab7887c5ad9ba5334c6ecec7411d9b10953872a819cbbc4051b96a8 # v2.34.0
+          image: kratos:5000/mirror/ntfy@sha256:a97941c47ab7887c5ad9ba5334c6ecec7411d9b10953872a819cbbc4051b96a8 # v2.34.0
           args: [serve]
           env:
             - { name: NTFY_BASE_URL, value: "http://kratos:2586" }

@@ -1,5 +1,5 @@
 # Private image registry for the cluster. Tailnet only, plain HTTP, no auth.
-# Images: 100.117.102.56:5000/<name>:<tag>. Nodes pull via registries.yaml (NixOS).
+# Images: kratos:5000/<name>:<tag>. Nodes pull via registries.yaml (NixOS).
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -66,7 +66,7 @@ spec:
           emptyDir: {}
 ---
 # LoadBalancer makes k3s bind port 5000 on the node, so containerd and
-# other tailnet machines reach 100.117.102.56:5000.
+# other tailnet machines reach kratos:5000.
 apiVersion: v1
 kind: Service
 metadata:

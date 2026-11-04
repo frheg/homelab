@@ -41,7 +41,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: kube-state-metrics
-          image: 100.117.102.56:5000/mirror/kube-state-metrics@sha256:01171220c7c059afc85034ffe687bfe7249e41c0cc46fbe9a5128503ceee3016 # v2.20.0
+          image: kratos:5000/mirror/kube-state-metrics@sha256:01171220c7c059afc85034ffe687bfe7249e41c0cc46fbe9a5128503ceee3016 # v2.20.0
           args:
             - --resources=pods,nodes,namespaces,persistentvolumeclaims,deployments,statefulsets,daemonsets,jobs,cronjobs
           ports: [{ name: http, containerPort: 8080 }]

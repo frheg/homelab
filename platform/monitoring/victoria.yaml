@@ -41,7 +41,7 @@ spec:
         runAsGroup: 65534
       containers:
         - name: victoria
-          image: 100.117.102.56:5000/mirror/victoria-metrics@sha256:5297c6d688a79008911767193267067836f1cc769ecb05a9e0f7e057490b35ca # v1.154.1
+          image: kratos:5000/mirror/victoria-metrics@sha256:5297c6d688a79008911767193267067836f1cc769ecb05a9e0f7e057490b35ca # v1.154.1
           args:
             - -storageDataPath=/storage
             - -retentionPeriod=90d

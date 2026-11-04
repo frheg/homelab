@@ -11,7 +11,7 @@ GitHub Actions). Reboot test passed on 2026-10-29: cluster came up by itself.
 
 3. (done) gpuproxy: wakes llm, strata and stable-diffusion on request. Verified on the cluster.
 4. (done) Panel at /panel/: GPU reserve and switch, profile start and stop. Homepage links to it.
-5. (done) Shared data services: Postgres, Qdrant, Neo4j, SearXNG. See migration-homelab.md.
+5. (done) Shared data services: Postgres, Qdrant, Neo4j, SearXNG. See docs/archive/migration-homelab.md.
 6. Embedding and rerank servers, as GPU or CPU consumers.
 7. Backups: /srv data and the registry. Path B (etcd restore) is rehearsed, path A is not.
 8. (built, unverified) Monitoring: metrics, dashboards, push alerts, see monitoring.md. The panel shows GPU numbers and firing alerts. Not yet: logs.
@@ -25,23 +25,11 @@ GitHub Actions). Reboot test passed on 2026-10-29: cluster came up by itself.
     FHS-style driver root, and its dev nodes come out under that root. Revisit when the NixOS
     toolkit module or the plugin supports a non-FHS driver root. Option later: NVIDIA DRA driver.
 
-## Migrating HomeLab (old project, ~/Documents/HomeLab): manifests done, see migration-homelab.md
+## Old HomeLab: migrated, then removed
 
-| Old service | New home | Notes |
-|---|---|---|
-| llama-swap | llm gateway (done) | uses the same models in /srv/models |
-| postgres | platform Postgres | agent registry, sessions, run logs |
-| qdrant | platform Qdrant | vector store |
-| neo4j | platform Neo4j | graph, 60 GB of data |
-| searxng | platform SearXNG | stateless, easy |
-| ingest | Job (Wikipedia into Qdrant and Neo4j) | uses wiki_dump, 25 GB |
-| api | project `homelab`, Go or keep Python | agent network, FastAPI |
-| stable-diffusion | GPU consumer | 26 GB data |
-| colibri, strata | project `homelab` | strata data is 86 GB, check what it is |
-
-Data: move each directory to /srv/<service> when its service is built.
-Prefer dump and restore over copying raw database files.
-Order: SearXNG, Postgres, Qdrant, Neo4j, ingest, api, then the rest.
+The platform services (Postgres, Qdrant, Neo4j, SearXNG, llm) came from it and stay. The old API and ingest were
+removed from the cluster on 2026-11-04; Athena (docs/repos.md) replaces them. Strata and Stable Diffusion stay as GPU
+consumers. The migration notes and scripts are in docs/archive and scripts/archive.
 
 ## New thesislab
 

@@ -31,7 +31,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: llama-swap
-          image: 100.117.102.56:5000/llama-swap@sha256:0b60f4e4fe74cc22008b97026701dd6651f17370e9ee4084c1e906565ac348c4 # upstream :cuda of 2026-08-24, mirrored
+          image: kratos:5000/llama-swap@sha256:0b60f4e4fe74cc22008b97026701dd6651f17370e9ee4084c1e906565ac348c4 # upstream :cuda of 2026-08-24, mirrored
           args: ["-config", "/app/config.yaml", "-listen", ":8080"]
           env:
             - { name: HOME, value: /tmp }
@@ -113,7 +113,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: llama-swap
-          image: 100.117.102.56:5000/mirror/llama-swap@sha256:bb652785a2f5af4e238a2c35a0e965cda1c5d8a91755d7e3916381a73b0e660d # cpu 2026-10-29
+          image: kratos:5000/mirror/llama-swap@sha256:bb652785a2f5af4e238a2c35a0e965cda1c5d8a91755d7e3916381a73b0e660d # cpu 2026-10-29
           args: ["-config", "/app/config.yaml", "-listen", ":8080"]
           env:
             - { name: HOME, value: /tmp }
@@ -168,7 +168,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: gpuproxy
-          image: 100.117.102.56:5000/gpuproxy@sha256:1c555c77bf2cc81539ee732534012571e6a30da726b323ec62cc9a8f26a8a83e
+          image: kratos:5000/gpuproxy@sha256:1c555c77bf2cc81539ee732534012571e6a30da726b323ec62cc9a8f26a8a83e
           args: ["-consumer", "llm", "-backend", "http://llm-backend.llm", "-gpuctl", "http://gpuctl.gpu-system"]
           ports: [{ containerPort: 8080 }]
           readinessProbe:

@@ -1,6 +1,8 @@
+> Archived 2026-11-04: the old API and ingest were removed from the cluster. Kept for history.
+
 # Migrating the old HomeLab
 
-The old project (~/Documents/HomeLab, docker compose) now runs as pods.
+The old project (~/Documents/HomeLab_Old, docker compose) now runs as pods.
 Code stays in its own repo, this repo holds the manifests.
 
 ## Where everything went
@@ -70,7 +72,7 @@ Ingest (uses the GPU, so reserve it first):
 ## Roll back
 
 The old data is moved, not copied. To go back: stop the pods (`profctl down homelab`),
-move the directories from /srv back to ~/Documents/HomeLab/data, and use the old
+move the directories from /srv back to ~/Documents/HomeLab_Old/data, and use the old
 docker compose. The old Postgres data directory was never touched.
 
 ## Verified on 2026-10-29

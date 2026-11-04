@@ -9,4 +9,4 @@ spec:
   restartPolicy: Never
   containers:
     - name: gpuctl
-      image: 100.117.102.56:5000/gpuctl:8be02a5
+      image: kratos:5000/gpuctl:8be02a5

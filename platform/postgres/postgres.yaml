@@ -42,7 +42,7 @@ spec:
         runAsGroup: 999
       containers:
         - name: postgres
-          image: 100.117.102.56:5000/mirror/pgvector@sha256:1ab15f9f756599fb129a846d7b8175e14079a633d45cd94d9d82b5401c581ac9 # pg17 2026-10-01
+          image: kratos:5000/mirror/pgvector@sha256:1ab15f9f756599fb129a846d7b8175e14079a633d45cd94d9d82b5401c581ac9 # pg17 2026-10-01
           envFrom:
             - secretRef: { name: postgres }
           env:

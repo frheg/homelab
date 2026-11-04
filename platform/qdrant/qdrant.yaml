@@ -27,7 +27,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: qdrant
-          image: 100.117.102.56:5000/mirror/qdrant@sha256:68944d71026e9d9e9b20c5bd471fd457b2fddbec1502fc604c0a2cc44e2cad1b # 2026-07-17
+          image: kratos:5000/mirror/qdrant@sha256:68944d71026e9d9e9b20c5bd471fd457b2fddbec1502fc604c0a2cc44e2cad1b # 2026-07-17
           env:
             - { name: QDRANT__TELEMETRY_DISABLED, value: "true" }
             # snapshots stay inside the data directory, so they survive a restart

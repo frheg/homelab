@@ -35,7 +35,7 @@ spec:
         runAsGroup: 7474
       containers:
         - name: neo4j
-          image: 100.117.102.56:5000/mirror/neo4j@sha256:cf5d1a90e9b3c7ec0ff571cb80e057fb0569335cad859c5fb38b4296f263978b # 5-community 2026-07-16
+          image: kratos:5000/mirror/neo4j@sha256:cf5d1a90e9b3c7ec0ff571cb80e057fb0569335cad859c5fb38b4296f263978b # 5-community 2026-07-16
           env:
             # only this key: the entrypoint turns every NEO4J_* variable into a setting,
             # so NEO4J_PASSWORD (for the API) in the pod would stop it from starting

@@ -23,7 +23,7 @@ Tokens (read-only, or use headlamp-admin-token to change things):
 
     profctl list                  profiles and their namespaces
     profctl status homelab
-    profctl down homelab          stop searxng, postgres, qdrant, neo4j, api
+    profctl down homelab          stop searxng, postgres, qdrant, neo4j
     profctl up homelab            start them again
 
 A profile is the set of namespaces labelled `profile.kratos/<name>=true`.

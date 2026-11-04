@@ -3,7 +3,7 @@
 # Moves the old HomeLab data into /srv. Same disk, so each move is an instant rename.
 # Safe to run twice: it skips what is already moved and never overwrites.
 set -eu
-src=/home/v1s/Documents/HomeLab/data
+src=/home/v1s/Documents/HomeLab_Old/data
 
 move() { # name  destination  chown-owner-or-"-"
   [ -e "$src/$1" ] || { echo "skip   $1 (already moved)"; return 0; }
