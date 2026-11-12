@@ -1,40 +1,4 @@
-# Dashboard at /. Static config for now; links grow as services are added.
-apiVersion: v1
-kind: ConfigMap
-metadata: { name: homepage, namespace: platform-ui }
-data:
-  settings.yaml: |
-    title: kratos
-    headerStyle: clean
-  services.yaml: |
-    - Control:
-        - Panel:
-            href: /panel/
-            description: GPU and profile buttons
-            widget:
-              type: customapi
-              url: http://panel.platform-ui/api/state
-              refreshInterval: 10000
-              mappings:
-                - field: gpu.holder
-                  label: GPU holder
-                - field: gpu.reserved_by
-                  label: Reserved by
-                - field: alerts_firing
-                  label: Alerts firing
-    - Cluster:
-        - Headlamp:
-            href: /headlamp/
-            description: Kubernetes UI (token login)
-  widgets.yaml: |
-    - resources:
-        cpu: true
-        memory: true
-        disk: /
-  bookmarks.yaml: ""
-  docker.yaml: ""
-  kubernetes.yaml: ""
----
+# Start page at / (and /home). Config is in homepage/*.yaml, as a generated ConfigMap: a change restarts the pod.
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: homepage, namespace: platform-ui }
@@ -46,8 +10,7 @@ spec:
     spec:
       enableServiceLinks: false
       # Homepage writes /app/config/logs, so config must be on a writable
-      # volume: copy the ConfigMap in at start. After editing the ConfigMap,
-      # restart the pod (kubectl -n platform-ui rollout restart deploy/homepage).
+      # volume: copy the ConfigMap in at start.
       initContainers:
         - name: copy-config
           image: ghcr.io/gethomepage/homepage@sha256:19c5c09184458a41b7b5915e71463a39f36cd33540f41bdbed008791b8182d5f # v2.7.0

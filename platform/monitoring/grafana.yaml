@@ -24,6 +24,10 @@ spec:
             - { name: GF_AUTH_ANONYMOUS_ENABLED, value: "true" }
             - { name: GF_AUTH_ANONYMOUS_ORG_ROLE, value: Admin }
             - { name: GF_AUTH_DISABLE_LOGIN_FORM, value: "true" }
+            # Traefik's basic-auth header reaches Grafana too; without this Grafana tries it as its own login, fails,
+            # locks the user and shows a bare page instead of the anonymous view.
+            - { name: GF_AUTH_BASIC_ENABLED, value: "false" }
+            - { name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH, value: /dashboards/kratos-overview.json }
             - { name: GF_ANALYTICS_REPORTING_ENABLED, value: "false" }
             - { name: GF_ANALYTICS_CHECK_FOR_UPDATES, value: "false" }
             - { name: GF_METRICS_ENABLED, value: "true" }
@@ -54,6 +58,7 @@ spec:
               - configMap: { name: grafana-dash-node }
               - configMap: { name: grafana-dash-gpu }
               - configMap: { name: grafana-dash-pods }
+              - configMap: { name: grafana-dash-overview }
 ---
 apiVersion: v1
 kind: Service

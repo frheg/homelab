@@ -1,0 +1,73 @@
+# Every UI on kratos. Numbers come from VictoriaMetrics (platform-ui has monitoring.kratos/access).
+# Not linked on purpose: the llama-swap UIs (their Activity page shows recent prompts and answers).
+- Monitoring:
+    - Overview:
+        href: /grafana/
+        description: One screen, is kratos OK? (Grafana)
+        widget:
+          type: prometheusmetric
+          url: http://victoria.monitoring:8428
+          refreshInterval: 30000
+          metrics:
+            - label: Alerts firing
+              query: count(ALERTS{alertstate="firing"}) or vector(0)
+            - label: Restarts, 1 h
+              query: sum(kube_pod_container_status_restarts_total - (kube_pod_container_status_restarts_total offset 1h)) or vector(0)
+            - label: Pod memory
+              query: sum(container_memory_working_set_bytes{container!="",pod!=""})
+              format: { type: bytes }
+            - label: Disk free
+              query: node_filesystem_avail_bytes{mountpoint="/"}
+              format: { type: bytes }
+    - Host:
+        href: /grafana/d/rYdddlPWk
+        description: CPU, memory, disk, network, systemd (Node Exporter Full)
+    - Pods:
+        href: /grafana/d/k8s_views_pods
+        description: CPU, memory and restarts per pod
+    - Alerts on the phone:
+        href: http://kratos:2586/kratos-alerts
+        description: ntfy topic kratos-alerts (log in as v1s)
+- GPU:
+    - Panel:
+        href: /panel/
+        description: GPU and profile buttons
+        widget:
+          type: customapi
+          url: http://panel.platform-ui/api/state
+          refreshInterval: 10000
+          mappings:
+            - field: gpu.holder
+              label: GPU holder
+            - field: gpu.reserved_by
+              label: Reserved by
+            - field: alerts_firing
+              label: Alerts firing
+    - GPU card:
+        href: /grafana/d/vlvPlrgnk
+        description: Load, VRAM, temperature, power (Grafana)
+        widget:
+          type: prometheusmetric
+          url: http://victoria.monitoring:8428
+          refreshInterval: 15000
+          metrics:
+            - label: Load
+              query: nvidia_smi_utilization_gpu_ratio * 100
+              format: { type: percent }
+            - label: VRAM
+              query: nvidia_smi_memory_used_bytes / nvidia_smi_memory_total_bytes * 100
+              format: { type: percent }
+            - label: Temperature
+              query: nvidia_smi_temperature_gpu
+              format: { type: number, suffix: " °C" }
+- Thesis:
+    - Makeup Search:
+        href: /makeup/
+        description: Real Odfjell data. Confidential, assistant through llm-confidential
+    - Makeup Search demo:
+        href: /makeup-demo/
+        description: Synthetic data, safe to show
+- Cluster:
+    - Headlamp:
+        href: /headlamp/
+        description: Kubernetes UI (token login)

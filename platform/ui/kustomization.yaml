@@ -8,3 +8,13 @@ resources:
   - homepage.yaml
   - panel.yaml
   - ingress.yaml
+configMapGenerator:
+  - name: homepage
+    namespace: platform-ui
+    files:
+      - homepage/settings.yaml
+      - homepage/services.yaml
+      - homepage/widgets.yaml
+      - homepage/bookmarks.yaml
+      - homepage/docker.yaml
+      - homepage/kubernetes.yaml

@@ -1,0 +1,932 @@
+{
+ "uid": "kratos-overview",
+ "title": "kratos overview",
+ "tags": [
+  "kratos"
+ ],
+ "editable": false,
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "30s",
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "description": "One screen: is kratos OK? Alerts, restarts, memory against the pod limit, disk, GPU. Details in the linked dashboards.",
+ "links": [
+  {
+   "title": "Node (host)",
+   "type": "link",
+   "url": "/grafana/d/rYdddlPWk"
+  },
+  {
+   "title": "GPU",
+   "type": "link",
+   "url": "/grafana/d/vlvPlrgnk"
+  },
+  {
+   "title": "Pods",
+   "type": "link",
+   "url": "/grafana/d/k8s_views_pods"
+  },
+  {
+   "title": "Start page",
+   "type": "link",
+   "url": "/"
+  }
+ ],
+ "panels": [
+  {
+   "id": 1,
+   "type": "stat",
+   "title": "Alerts firing",
+   "description": "Alerts vmalert is firing now (they also go to ntfy). Table below.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 2,
+   "type": "stat",
+   "title": "Restarts, last hour",
+   "description": "Container restarts in the last hour, all namespaces.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 3,
+    "y": 0,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(kube_pod_container_status_restarts_total - (kube_pod_container_status_restarts_total offset 1h)) or vector(0)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       },
+       {
+        "color": "red",
+        "value": 5
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 3,
+   "type": "stat",
+   "title": "Pod memory",
+   "description": "Memory used by all pods. The shared pod limit is about 26 GiB (docs/monitoring.md): near it the kernel kills processes in any pod.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 6,
+    "y": 0,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(container_memory_working_set_bytes{container!=\"\",pod!=\"\"})",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 21474836480
+       },
+       {
+        "color": "red",
+        "value": 25769803776
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 4,
+   "type": "stat",
+   "title": "Host memory free",
+   "description": "Memory the host still has available.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 9,
+    "y": 0,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "node_memory_MemAvailable_bytes",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 4294967296
+       },
+       {
+        "color": "green",
+        "value": 8589934592
+       }
+      ]
+     },
+     "decimals": 1
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 5,
+   "type": "stat",
+   "title": "Disk free (/ and /srv)",
+   "description": "Free space on the root filesystem, which holds /srv (data, models).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 107374182400
+       },
+       {
+        "color": "green",
+        "value": 214748364800
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 6,
+   "type": "stat",
+   "title": "GPU load",
+   "description": "GPU compute load now.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 15,
+    "y": 0,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "nvidia_smi_utilization_gpu_ratio * 100",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 7,
+   "type": "stat",
+   "title": "VRAM used",
+   "description": "Share of GPU memory in use.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 0,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "nvidia_smi_memory_used_bytes / nvidia_smi_memory_total_bytes * 100",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     },
+     "decimals": 0
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 8,
+   "type": "stat",
+   "title": "GPU temperature",
+   "description": "GPU core temperature.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 21,
+    "y": 0,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "nvidia_smi_temperature_gpu",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 75
+       },
+       {
+        "color": "red",
+        "value": 85
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 9,
+   "type": "timeseries",
+   "title": "Pod memory by namespace",
+   "description": "Stacked: the top edge is all pods together. Red line: about 26 GiB, the shared pod limit.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (namespace) (container_memory_working_set_bytes{container!=\"\",pod!=\"\"})",
+     "legendFormat": "{{namespace}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "custom": {
+      "fillOpacity": 25,
+      "stacking": {
+       "mode": "normal"
+      },
+      "lineWidth": 1,
+      "thresholdsStyle": {
+       "mode": "line"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "transparent",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 27917287424
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 10,
+   "type": "timeseries",
+   "title": "GPU",
+   "description": "Which consumer holds the GPU: the table below, or the Panel.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 4,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "nvidia_smi_utilization_gpu_ratio * 100",
+     "legendFormat": "load %",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "nvidia_smi_memory_used_bytes / nvidia_smi_memory_total_bytes * 100",
+     "legendFormat": "VRAM %",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     }
+    },
+    {
+     "refId": "C",
+     "expr": "nvidia_smi_power_draw_watts / nvidia_smi_power_limit_watts * 100",
+     "legendFormat": "power % of limit",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "fillOpacity": 8,
+      "stacking": {
+       "mode": "none"
+      },
+      "lineWidth": 1
+     },
+     "max": 100
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 11,
+   "type": "timeseries",
+   "title": "CPU",
+   "description": "Share of CPU time not idle, all cores.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 12,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "100 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100",
+     "legendFormat": "busy %",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "fillOpacity": 8,
+      "stacking": {
+       "mode": "none"
+      },
+      "lineWidth": 1
+     },
+     "max": 100
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 12,
+   "type": "timeseries",
+   "title": "Network",
+   "description": "Traffic on the host's real interfaces (not pod interfaces).",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 12,
+    "w": 12,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(rate(node_network_receive_bytes_total{device!~\"lo|veth.*|cni.*|flannel.*\"}[5m]))",
+     "legendFormat": "in",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "sum(rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|cni.*|flannel.*\"}[5m]))",
+     "legendFormat": "out",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "Bps",
+     "custom": {
+      "fillOpacity": 8,
+      "stacking": {
+       "mode": "none"
+      },
+      "lineWidth": 1
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "id": 13,
+   "type": "table",
+   "title": "Firing alerts",
+   "description": "Every alert firing now, with its labels. Rules: platform/monitoring/rules.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 18,
+    "w": 12,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "ALERTS{alertstate=\"firing\"}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true,
+       "endpoint": true,
+       "service": true,
+       "pod_template_hash": true,
+       "uid": true
+      },
+      "renameByName": {
+       "alertname": "Alert",
+       "severity": "Severity",
+       "namespace": "Namespace"
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "footer": {
+     "show": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "id": 14,
+   "type": "table",
+   "title": "GPU consumers running",
+   "description": "GPU consumers with a running pod. Normally one: gpuctl gives the GPU to one consumer at a time.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 18,
+    "w": 12,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "kube_deployment_status_replicas_available{deployment=~\"llm|llm-confidential|strata|stable-diffusion\"} > 0",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true,
+       "endpoint": true,
+       "service": true,
+       "pod_template_hash": true,
+       "uid": true
+      },
+      "renameByName": {
+       "deployment": "Consumer",
+       "namespace": "Namespace",
+       "Value": "Pods"
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "footer": {
+     "show": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  },
+  {
+   "id": 15,
+   "type": "table",
+   "title": "Pods that restarted, last 24 h",
+   "description": "Pods with at least one container restart in the last 24 hours.",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "vm"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 25,
+    "w": 24,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (namespace, pod) (kube_pod_container_status_restarts_total - (kube_pod_container_status_restarts_total offset 24h)) > 0",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "vm"
+     },
+     "instant": true,
+     "format": "table"
+    }
+   ],
+   "transformations": [
+    {
+     "id": "organize",
+     "options": {
+      "excludeByName": {
+       "Time": true,
+       "__name__": true,
+       "job": true,
+       "instance": true,
+       "endpoint": true,
+       "service": true,
+       "pod_template_hash": true,
+       "uid": true
+      },
+      "renameByName": {
+       "namespace": "Namespace",
+       "pod": "Pod",
+       "Value": "Restarts"
+      }
+     }
+    }
+   ],
+   "options": {
+    "showHeader": true,
+    "footer": {
+     "show": false
+    }
+   },
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   }
+  }
+ ],
+ "templating": {
+  "list": []
+ },
+ "annotations": {
+  "list": []
+ }
+}

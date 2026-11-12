@@ -23,3 +23,4 @@ configMapGenerator:
   - { name: grafana-dash-node, namespace: monitoring, files: [dashboards/node-exporter-full.json] }
   - { name: grafana-dash-gpu, namespace: monitoring, files: [dashboards/nvidia-gpu.json] }
   - { name: grafana-dash-pods, namespace: monitoring, files: [dashboards/kubernetes-pods.json] }
+  - { name: grafana-dash-overview, namespace: monitoring, files: [dashboards/kratos-overview.json] }
