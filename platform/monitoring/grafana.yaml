@@ -28,6 +28,10 @@ spec:
             # locks the user and shows a bare page instead of the anonymous view.
             - { name: GF_AUTH_BASIC_ENABLED, value: "false" }
             - { name: GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH, value: /dashboards/kratos-overview.json }
+            # Use the plugins bundled with the pinned image. Otherwise Grafana downloads "updates" at every start, and on
+            # the read-only filesystem it unregisters the bundled Prometheus plugin and fails to replace it: no data.
+            - { name: GF_PLUGINS_PREINSTALL_DISABLED, value: "true" }
+            - { name: GF_PLUGINS_PREINSTALL_AUTO_UPDATE, value: "false" }
             - { name: GF_ANALYTICS_REPORTING_ENABLED, value: "false" }
             - { name: GF_ANALYTICS_CHECK_FOR_UPDATES, value: "false" }
             - { name: GF_METRICS_ENABLED, value: "true" }
