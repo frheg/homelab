@@ -1,8 +1,10 @@
-// llmconf builds the two llama-swap configs from one file per model.
+// llmconf builds the llama-swap configs from one file per model.
 //
-//	platform/llm/models/<name>.yaml   runtime: gpu|cpu, description, ttl, cmd
-//	platform/llm/config-gpu.yaml      generated, models with runtime gpu
-//	platform/llm/config-cpu.yaml      generated, models with runtime cpu
+//	platform/llm/models/<name>.yaml        runtime: gpu|cpu, description, ttl, cmd, confidential (optional)
+//	platform/llm/config-gpu.yaml           generated, models with runtime gpu
+//	platform/llm/config-cpu.yaml           generated, models with runtime cpu
+//	platform/llm/config-confidential.yaml  generated, gpu models marked confidential, for the llm-confidential
+//	                                       gateway: no request captures, no stdout logs (prompts hold confidential data)
 //
 // Usage: llmconf -dir platform/llm [-check]. With -check it writes nothing and
 // fails if the generated files are out of date (CI).
@@ -21,10 +23,11 @@ import (
 )
 
 type model struct {
-	Runtime     string `yaml:"runtime"`
-	Description string `yaml:"description"`
-	TTL         int    `yaml:"ttl"`
-	Cmd         string `yaml:"cmd"`
+	Runtime      string `yaml:"runtime"`
+	Description  string `yaml:"description"`
+	TTL          int    `yaml:"ttl"`
+	Cmd          string `yaml:"cmd"`
+	Confidential bool   `yaml:"confidential"`
 }
 
 type entry struct {
@@ -37,6 +40,16 @@ type entry struct {
 type config struct {
 	HealthCheckTimeout int              `yaml:"healthCheckTimeout"`
 	LogRequests        bool             `yaml:"logRequests"`
+	Models             map[string]entry `yaml:"models"`
+}
+
+// privateConfig is the confidential gateway's config. llama-swap keeps request and response bodies in memory for its
+// Activity page unless captureBuffer is 0, and logs upstream output to stdout unless logToStdout is none.
+type privateConfig struct {
+	HealthCheckTimeout int              `yaml:"healthCheckTimeout"`
+	LogLevel           string           `yaml:"logLevel"`
+	LogToStdout        string           `yaml:"logToStdout"`
+	CaptureBuffer      int              `yaml:"captureBuffer"`
 	Models             map[string]entry `yaml:"models"`
 }
 
@@ -58,6 +71,9 @@ func validate(name string, m model) []string {
 		}
 	default:
 		add("runtime must be gpu or cpu, got %q", m.Runtime)
+	}
+	if m.Confidential && m.Runtime != "gpu" {
+		add("confidential models run on the llm-confidential gateway, which is a gpu gateway: runtime must be gpu")
 	}
 	if m.TTL <= 0 {
 		add("ttl must be a positive number of seconds")
@@ -85,6 +101,7 @@ func build(dir string) (map[string][]byte, []string, error) {
 		"gpu": {HealthCheckTimeout: 300, LogRequests: true, Models: map[string]entry{}},
 		"cpu": {HealthCheckTimeout: 600, LogRequests: true, Models: map[string]entry{}},
 	}
+	private := &privateConfig{HealthCheckTimeout: 300, LogLevel: "warn", LogToStdout: "none", CaptureBuffer: 0, Models: map[string]entry{}}
 	var bad []string
 	for _, f := range files {
 		raw, err := os.ReadFile(f)
@@ -103,11 +120,15 @@ func build(dir string) (map[string][]byte, []string, error) {
 			bad = append(bad, p...)
 			continue
 		}
-		cfgs[m.Runtime].Models[name] = entry{
+		e := entry{
 			Description: m.Description,
 			Cmd:         strings.Join(strings.Fields(m.Cmd), " "),
 			Proxy:       "http://127.0.0.1:9999",
 			TTL:         m.TTL,
+		}
+		cfgs[m.Runtime].Models[name] = e
+		if m.Confidential {
+			private.Models[name] = e
 		}
 	}
 	out := map[string][]byte{}
@@ -118,6 +139,11 @@ func build(dir string) (map[string][]byte, []string, error) {
 		}
 		out["config-"+rt+".yaml"] = append([]byte(header), b...)
 	}
+	b, err := yaml.Marshal(private)
+	if err != nil {
+		return nil, nil, err
+	}
+	out["config-confidential.yaml"] = append([]byte(header), b...)
 	return out, bad, nil
 }
 

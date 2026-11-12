@@ -1,6 +1,7 @@
 # MoE, 40 layers, native ctx 262144. n-cpu-moe 18 plus MTP: 14.57GB VRAM, 89 tok/s (66.7 
 # before MTP). --parallel 1 is required for MTP, concurrent requests queue.
 runtime: gpu
+confidential: true # also served by llm-confidential (the Makeup Search assistant on real Odfjell data)
 description: "Default: general-purpose, agentic tool use, MTP speculative decode"
 ttl: 600
 cmd: >-

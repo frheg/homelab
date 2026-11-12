@@ -50,6 +50,11 @@ The pod namespace must be labelled `llm.kratos/access=true`.
 From your shell: `kubectl -n llm port-forward deploy/llm 18080:8080`.
 Models are files in /srv/models, listed in platform/llm/llm.yaml.
 
+Confidential prompts: http://llm-confidential.llm-confidential/v1/chat/completions, for namespaces labelled
+`llm-confidential.kratos/access=true`. It serves the models marked `confidential: true` in platform/llm/models and keeps
+no request captures or logs (the normal gateways keep recent request bodies in memory). It is its own GPU consumer, so
+a call moves the GPU away from llm for a while.
+
 ## Change the cluster
 
 Everything is in git: ~/homelab. Edit, commit, push. Flux applies it within
@@ -107,6 +112,7 @@ Each is reached by name once the project namespace has the access label:
     qdrant.qdrant     (qdrant.kratos/access=true)
     neo4j.neo4j       (neo4j.kratos/access=true)
     llm.llm, llm-cpu.llm (llm.kratos/access=true)
+    llm-confidential.llm-confidential (llm-confidential.kratos/access=true)
 
 ## Wake on request
 

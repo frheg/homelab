@@ -1,0 +1,225 @@
+# Makeup Search (masters-sandbox/product-v2): the same image as the docker version, configured by environment only.
+#   http://kratos/makeup-demo/   synthetic data, model through llm (logged and captured: fine for synthetic data)
+#   http://kratos/makeup/        real Odfjell data, model through llm-confidential (no request logs or captures)
+# Data lives in /srv/makeup/{demo,real} (store, app.db, derived checks), owned by uid 1000. Always on.
+# The real namespace may reach DNS and llm-confidential only; nothing else, no internet.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: makeup-demo
+  labels:
+    llm.kratos/access: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: makeup
+  labels:
+    llm-confidential.kratos/access: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: makeup-search
+  namespace: makeup-demo
+spec:
+  replicas: 1
+  strategy: { type: Recreate } # one writer for app.db
+  selector: { matchLabels: { app: makeup-search } }
+  template:
+    metadata:
+      labels: { app: makeup-search }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: app
+          image: kratos:5000/makeup-search@sha256:749e8eb3a83e93c3e97fe71a1ec7946bd9a68f0b9525265920d52be3447bd964 # 0.3.0, 2026-11-12
+          env:
+            - { name: DATA_DIR, value: /data }
+            - { name: CONFIG_DIR, value: /app/config }
+            - { name: ROOT_PATH, value: /makeup-demo }
+            - { name: LLM_URL, value: "http://llm.llm/v1" }
+            - { name: LLM_MODEL, value: qwen3.6-35b }
+          ports: [{ containerPort: 8000 }]
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8000 }
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+            limits: { memory: 2Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: data
+          hostPath: { path: /srv/makeup/demo, type: Directory }
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: makeup-search
+  namespace: makeup
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: makeup-search } }
+  template:
+    metadata:
+      labels: { app: makeup-search }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: app
+          image: kratos:5000/makeup-search@sha256:749e8eb3a83e93c3e97fe71a1ec7946bd9a68f0b9525265920d52be3447bd964 # 0.3.0, 2026-11-12
+          env:
+            - { name: DATA_DIR, value: /data }
+            - { name: CONFIG_DIR, value: /app/config }
+            - { name: ROOT_PATH, value: /makeup }
+            - { name: LLM_URL, value: "http://llm-confidential.llm-confidential/v1" }
+            - { name: LLM_MODEL, value: qwen3.6-35b }
+          ports: [{ containerPort: 8000 }]
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8000 }
+            periodSeconds: 15
+          startupProbe: # loading the real store and its scales takes a while
+            httpGet: { path: /api/health, port: 8000 }
+            periodSeconds: 10
+            failureThreshold: 60
+          resources:
+            requests: { cpu: 250m, memory: 2Gi }
+            limits: { memory: 8Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: data
+          hostPath: { path: /srv/makeup/real, type: Directory } # must exist: no empty real instance by accident
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata: { name: makeup-search, namespace: makeup-demo }
+spec:
+  selector: { app: makeup-search }
+  ports: [{ port: 80, targetPort: 8000 }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: makeup-search, namespace: makeup }
+spec:
+  selector: { app: makeup-search }
+  ports: [{ port: 80, targetPort: 8000 }]
+---
+# In: Traefik only (after the basic-auth). Out: DNS and the one model gateway each namespace may use.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: makeup-search, namespace: makeup-demo }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 8000 }]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: llm } } }]
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: makeup-search, namespace: makeup }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 8000 }]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: llm-confidential } } }]
+      ports: [{ port: 8080 }]
+---
+# The app uses relative URLs, so it works under a prefix; the slash redirect keeps /makeup from breaking them.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: prefix, namespace: makeup-demo }
+spec:
+  stripPrefix:
+    prefixes: [/makeup-demo]
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: slash, namespace: makeup-demo }
+spec:
+  redirectRegex:
+    regex: ^(https?://[^/]+/makeup-demo)$
+    replacement: ${1}/
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: prefix, namespace: makeup }
+spec:
+  stripPrefix:
+    prefixes: [/makeup]
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: slash, namespace: makeup }
+spec:
+  redirectRegex:
+    regex: ^(https?://[^/]+/makeup)$
+    replacement: ${1}/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: makeup-search
+  namespace: makeup-demo
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd,makeup-demo-slash@kubernetescrd,makeup-demo-prefix@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /makeup-demo
+            pathType: Prefix
+            backend: { service: { name: makeup-search, port: { number: 80 } } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: makeup-search
+  namespace: makeup
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd,makeup-slash@kubernetescrd,makeup-prefix@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /makeup
+            pathType: Prefix
+            backend: { service: { name: makeup-search, port: { number: 80 } } }

@@ -24,6 +24,9 @@ Pod total is about 26 Gi and 13.5 cores (`docs/monitoring.md`). Host: i5-14400F,
 | SearXNG | default | searxng | - | - | 512 Mi | 128 Mi | profile | public |
 | llm (llama.cpp via llama-swap, GPU) | default consumer | llm | gpuctl | yes | 24 Gi | 355 Mi | gpuproxy | internal |
 | llm-cpu (GPU plus CPU offload for big models) | default consumer | llm | gpuctl | yes | 26 Gi | - | gpuproxy | internal |
+| llm-confidential (llama-swap, models marked `confidential`, keeps no captures or logs) | interactive consumer | llm-confidential | gpuctl | yes | 24 Gi | measure | gpuproxy | confidential |
+| Makeup Search, synthetic (`/makeup-demo/`) | default | makeup-demo | llm | via llm | 2 Gi | measure | always on | public |
+| Makeup Search, real Odfjell data (`/makeup/`) | default | makeup | llm-confidential | via llm-confidential | 8 Gi | measure | always on | confidential |
 | Strata | interactive consumer, hard preempt | homelab | gpuctl | yes | 22 Gi | 0 | gpuproxy, 25 min start | internal |
 | Stable Diffusion | interactive consumer, hard preempt | homelab | gpuctl | yes | 24 Gi | 0 | gpuproxy | internal |
 
@@ -42,13 +45,13 @@ Pod total is about 26 Gi and 13.5 cores (`docs/monitoring.md`). Host: i5-14400F,
 | Enclave Postgres (separate instance) | default | thesis-enclave | - | - | measure | with the enclave | confidential |
 | Bench runner (Jobs created by a small controller, no docker.sock) | background, resumable | thesis-bench | gpuctl | yes | per job | Job | confidential |
 | Other engines (FreeToken and later ones) | interactive consumer | per engine | gpuctl | yes | measure | gpuproxy | internal |
-| Demo product | to be discussed | product | to be discussed | - | - | - | - |
 
 ## Data flow and isolation
 
 - Lab to Enclave is one way: a read-only path for what the Lab produced. NetworkPolicies allow no traffic back.
 - Bench Jobs have no network. Only the Enclave controller creates them.
-- The Enclave has its own Postgres, in its own namespace, default-deny egress, an allowlist for its own pods, no request logging in the llm gateway for confidential traffic (`logRequests` is on today).
+- The Enclave has its own Postgres, in its own namespace, default-deny egress, an allowlist for its own pods, and uses llm-confidential for confidential traffic.
+- The shared llm gateways keep recent request and response bodies in memory (llama-swap `captureBuffer`, default 5 MB), readable at `/api/captures/<id>` by any namespace with `llm.kratos/access`. Tested on v251 (2026-11-12). Confidential prompts go to llm-confidential (`captureBuffer: 0`, `logToStdout: none`), which only namespaces labelled `llm-confidential.kratos/access=true` reach.
 - Check the old Enclave dump's Postgres major version (pg18) before choosing the image. The platform Postgres is pg17.
 - Neo4j and Qdrant stay shared and internal. Neo4j Community has one user database, so a second project gets its own instance.
 
@@ -67,4 +70,4 @@ New namespace `athena`, profile label `profile.kratos/athena`, new image paths a
 - Peak budgets for every row (measure, then replace the limits above).
 - Whether STT runs on CPU or takes short GPU bursts.
 - The Enclave Postgres image version.
-- Where the Demo product lands, once discussed.
+- Makeup Search: the image is the masters-sandbox/product-v2 Dockerfile, pushed to kratos:5000 by hand (no nix build).

@@ -81,3 +81,30 @@ func TestOutputIsStable(t *testing.T) {
 		t.Fatal("generator output changes between runs")
 	}
 }
+
+func TestConfidentialModelsGetAGatewayThatKeepsNothing(t *testing.T) {
+	d := t.TempDir()
+	write(t, d, "secret", gpuModel+"confidential: true\n")
+	write(t, d, "open", strings.Replace(gpuModel, "a.gguf", "c.gguf", 1))
+	out, bad, err := build(d)
+	if err != nil || len(bad) > 0 {
+		t.Fatalf("err=%v bad=%v", err, bad)
+	}
+	c := string(out["config-confidential.yaml"])
+	if !strings.Contains(c, "secret:") || strings.Contains(c, "open:") {
+		t.Errorf("confidential config has the wrong models:\n%s", c)
+	}
+	for _, want := range []string{"captureBuffer: 0", "logToStdout: none", "logLevel: warn"} {
+		if !strings.Contains(c, want) {
+			t.Errorf("confidential config lacks %q:\n%s", want, c)
+		}
+	}
+	if !strings.Contains(string(out["config-gpu.yaml"]), "secret:") {
+		t.Errorf("a confidential model is still served by the normal gateway")
+	}
+	d2 := t.TempDir()
+	write(t, d2, "x", cpuModel+"confidential: true\n")
+	if _, bad, _ := build(d2); len(bad) == 0 || !strings.Contains(bad[0], "runtime must be gpu") {
+		t.Fatalf("confidential cpu model passed: %v", bad)
+	}
+}

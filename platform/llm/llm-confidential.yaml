@@ -1,0 +1,135 @@
+# Confidential LLM gateway: the same llama-swap as llm, for prompts that hold confidential data (Makeup Search on real
+# Odfjell data). Its config (config-confidential.yaml, from models marked confidential) keeps nothing: captureBuffer 0
+# (llama-swap otherwise keeps request and response bodies in memory for its Activity page) and logToStdout none.
+# A separate GPU consumer: calling it moves the GPU from llm here, so llm callers get 503 + Retry-After meanwhile.
+# Only namespaces labelled llm-confidential.kratos/access=true may call it.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: llm-confidential
+  labels:
+    gpu.kratos/access: "true" # gpuproxy calls the arbiter
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-confidential
+  namespace: llm-confidential
+  labels: { gpu.kratos/consumer: llm-confidential }
+spec:
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: llm-confidential } }
+  template:
+    metadata:
+      labels: { app: llm-confidential, gpu.kratos/consumer: llm-confidential }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: llama-swap
+          image: kratos:5000/llama-swap@sha256:0b60f4e4fe74cc22008b97026701dd6651f17370e9ee4084c1e906565ac348c4 # same as llm (v251)
+          args: ["-config", "/app/config.yaml", "-listen", ":8080"]
+          env:
+            - { name: HOME, value: /tmp }
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+          resources:
+            requests: { cpu: "2", memory: 4Gi }
+            limits: { memory: 24Gi, nvidia.com/gpu-0: "1" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: config, mountPath: /app/config.yaml, subPath: config.yaml, readOnly: true }
+            - { name: models, mountPath: /models, readOnly: true }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: config
+          configMap: { name: llama-swap-confidential }
+        - name: models
+          hostPath: { path: /srv/models, type: Directory }
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-confidential-backend
+  namespace: llm-confidential
+spec:
+  selector: { app: llm-confidential }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-confidential
+  namespace: llm-confidential
+spec:
+  selector: { app: gpuproxy-llm-confidential }
+  ports: [{ port: 80, targetPort: 8080 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpuproxy-llm-confidential
+  labels: { gpu.kratos/proxy: llm-confidential }
+  namespace: llm-confidential
+spec:
+  selector: { matchLabels: { app: gpuproxy-llm-confidential } }
+  template:
+    metadata:
+      labels: { app: gpuproxy-llm-confidential }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+      containers:
+        - name: gpuproxy
+          image: kratos:5000/gpuproxy@sha256:1c555c77bf2cc81539ee732534012571e6a30da726b323ec62cc9a8f26a8a83e # same as llm
+          args: ["-consumer", "llm-confidential", "-backend", "http://llm-confidential-backend.llm-confidential", "-gpuctl", "http://gpuctl.gpu-system"]
+          ports: [{ containerPort: 8080 }]
+          readinessProbe:
+            httpGet: { path: /_gpuproxy/healthz, port: 8080 }
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { memory: 64Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+# Callers reach only the proxy; the gateway itself only from the proxy (its /logs and /ui stay inside the namespace).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-confidential-clients
+  namespace: llm-confidential
+spec:
+  podSelector: { matchLabels: { app: gpuproxy-llm-confidential } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { llm-confidential.kratos/access: "true" } }
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-from-proxy-only
+  namespace: llm-confidential
+spec:
+  podSelector: { matchLabels: { app: llm-confidential } }
+  policyTypes: [Ingress, Egress] # no egress: the model never talks to anything
+  ingress:
+    - from:
+        - podSelector: { matchLabels: { app: gpuproxy-llm-confidential } }
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: gpu-system } } # as for llm
+      ports: [{ port: 8080 }]
