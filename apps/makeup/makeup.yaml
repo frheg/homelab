@@ -161,14 +161,8 @@ spec:
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: llm-confidential } } }]
       ports: [{ port: 8080 }]
 ---
-# The app uses relative URLs, so it works under a prefix; the slash redirect keeps /makeup from breaking them.
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata: { name: prefix, namespace: makeup-demo }
-spec:
-  stripPrefix:
-    prefixes: [/makeup-demo]
----
+# No stripPrefix: the app gets the full path and removes the prefix itself (ROOT_PATH). Stripping it here as well
+# breaks its static files. The app uses relative URLs; the slash redirect keeps /makeup from breaking them.
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
 metadata: { name: slash, namespace: makeup-demo }
@@ -176,13 +170,6 @@ spec:
   redirectRegex:
     regex: ^(https?://[^/]+/makeup-demo)$
     replacement: ${1}/
----
-apiVersion: traefik.io/v1alpha1
-kind: Middleware
-metadata: { name: prefix, namespace: makeup }
-spec:
-  stripPrefix:
-    prefixes: [/makeup]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: Middleware
@@ -198,7 +185,7 @@ metadata:
   name: makeup-search
   namespace: makeup-demo
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd,makeup-demo-slash@kubernetescrd,makeup-demo-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd,makeup-demo-slash@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
@@ -214,7 +201,7 @@ metadata:
   name: makeup-search
   namespace: makeup
   annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd,makeup-slash@kubernetescrd,makeup-prefix@kubernetescrd
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd,makeup-slash@kubernetescrd
 spec:
   ingressClassName: traefik
   rules:
