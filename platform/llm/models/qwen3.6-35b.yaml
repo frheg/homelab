@@ -1,9 +1,11 @@
 # MoE, 40 layers, native ctx 262144. n-cpu-moe 18 plus MTP: 14.57GB VRAM, 89 tok/s (66.7 
 # before MTP). --parallel 1 is required for MTP, concurrent requests queue.
+# Vision: --mmproj (F16, 858 MiB, unsloth/Qwen3.6-35B-A3B-MTP-GGUF at 5bc3e238, sha256 71f3cbc1...). It needs VRAM, so
+# one more MoE layer moved to RAM (n-cpu-moe 18 -> 19). llama.cpp turns off context shift with a vision model.
 runtime: gpu
 params: 35 # total, in billions
 confidential: true # also served by llm-confidential (the Makeup Search assistant on real Odfjell data)
-description: "Default: general-purpose, agentic tool use, MTP speculative decode"
+description: "Default: general-purpose, agentic tool use, sees images, MTP speculative decode"
 ttl: 600
 cmd: >-
-  /app/llama-server --port 9999 -m /models/Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL.gguf -ngl 999 --n-cpu-moe 18 --ctx-size 65536 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1
+  /app/llama-server --port 9999 -m /models/Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL.gguf --mmproj /models/Qwen3.6-35B-A3B-mmproj-F16.gguf -ngl 999 --n-cpu-moe 19 --ctx-size 65536 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1

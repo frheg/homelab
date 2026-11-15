@@ -32,6 +32,9 @@ tools:
   - {match: "notes__get", class: read}
   - {match: "notes__reminders", class: read}
   - {match: "notes__*", class: write}
+  # files: what you attached. Its text was written by anyone, so reading it taints the conversation
+  - {match: "files__list", class: read}
+  - {match: "files__*", class: read, untrusted: true}
   # notify
   - {match: "notify__recipients", class: read}
   - {match: "notify__send", class: communicate}
