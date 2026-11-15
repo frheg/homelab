@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - athena.yaml
+  - secret.sops.yaml
+configMapGenerator:
+  # no hash suffix: core and mcp-cluster-act pick up edits from the mounted files without a restart
+  - name: athena-policy
+    namespace: athena
+    files: [policy.yaml, cluster-actions.yaml]
+    options: { disableNameSuffixHash: true }

@@ -34,9 +34,8 @@ Pod total is about 26 Gi and 13.5 cores (`docs/monitoring.md`). Host: i5-14400F,
 
 | Service | Tier | Namespace | Needs | GPU | Budget | Wake | Sensitivity |
 |---|---|---|---|---|---|---|---|
-| Athena API and agents (Deployment) | default | athena | Postgres, Qdrant, Neo4j, SearXNG, llm | - | measure (old API peaked near 6 Gi) | profile | internal |
-| Athena ingest (Wikipedia embeddings, Job, same repo as the API) | background, resumable | athena | Qdrant, gpuctl | yes | measure (old: 16 Gi) | Job through the arbiter | public |
-| Athena UI (always on, tiny) | infra | athena | wake proxy | - | ~64 Mi | always on | internal |
+| Athena: core, ui and nine small Go services (`apps/athena`, not yet enabled) | default | athena | Postgres, SearXNG, llm, gpuctl, VictoriaMetrics | via llm | about 0.3 Gi for all ten (Go, 32 to 64 Mi each) | always on (small); the model sleeps | internal |
+| Athena embeddings (an embed server, for memory search by meaning) | default consumer | llm | gpuctl or CPU | decide | measure | gpuproxy | internal |
 | Wake proxy (generic scale-from-zero front for non-GPU backends) | infra | platform | profctl | - | ~64 Mi | always on | internal |
 | STT (Whisper-class) | default, kept warm | athena | gpuctl or CPU | decide | measure | warm | internal |
 | Thesis Lab: workers, egress proxy, GROBID, public-data Postgres (pgvector, job queue) | background | thesis-lab | embed, rerank, llm | yes, via llm | measure | profile, windows | public |
@@ -61,9 +60,9 @@ Pod total is about 26 Gi and 13.5 cores (`docs/monitoring.md`). Host: i5-14400F,
 - Everything else behind an always-on UI: the wake proxy runs `profctl up`, shows a starting page, and retries until ready. Cold starts of 30 to 60 s or more are accepted.
 - Every backend must retry its dependencies at startup. The old API did not (empty agent registry after a boot with DNS down), so Athena must.
 
-## Athena rename
+## Athena
 
-New namespace `athena`, profile label `profile.kratos/athena`, new image paths and Secret. The `/srv/homelab-*` directories and the `homelab` database can keep their names. Do it in one commit, with the move, after the Postgres, Qdrant and Neo4j profile labels are updated to match.
+Namespace `athena`, manifests in `apps/athena`, images from athena's `scripts/publish`. It uses three databases on the shared Postgres (`athena`, `athena_memory`, `athena_notes`). Memory runs on word search until an embedding server exists. The cluster servers read only the namespaces bound in `athena.yaml` (no confidential ones) and may restart only the targets in `cluster-actions.yaml`.
 
 ## Open
 

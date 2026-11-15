@@ -57,13 +57,13 @@ Converting them to Dockerfiles is optional and not planned. The flake also insta
 ## Old images
 
 `strata` and `stable-diffusion` were built once with Docker from HomeLab_Old and copied to the registry. They have no build path in `homelab`, and keep running as GPU consumers (`apps/homelab`). Where their source lives is open.
-The old API and ingest were removed from the cluster on 2026-11-04. Their code is ported into `athena` (API, agents and ingest as separate images in one repo), not rebuilt from HomeLab_Old.
+The old API and ingest were removed from the cluster on 2026-11-04. `athena` is a new design, not a port: it keeps the lessons of HomeLab_Old but none of its code.
 
 ## Order
 
 1. Create the empty repos on GitHub.
 2. Scaffold `thesis-lab`: Dockerfiles, compose, the manifests in `apps/thesis-lab`.
-3. Port `athena` from HomeLab_Old: startup retry, `/ready`, the rename, then the manifests in `apps/athena`.
+3. Build `athena` from scratch (done: core, UI, tool servers, memory, notes, notify, cluster servers), then the manifests in `apps/athena`.
 4. Add `scripts/bump`.
 
 ## Open

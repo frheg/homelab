@@ -1,0 +1,59 @@
+# Athena permission policy. core reads it at start and again whenever the file changes (a broken edit keeps the
+# last good policy and is logged).
+#
+# Tool names are <server>__<tool>; <server> is the name given in TOOL_SERVERS. A tool that matches no entry under
+# `tools` is never offered to the model and is denied if it is asked for anyway.
+#
+# Classes and what they do by default (change under `defaults`):
+#   read         allow     look things up; nothing changes
+#   write        ask_once  changes that are easy to undo (notes, reminders, forgetting an item); one approval per
+#                          conversation, or "always" for the exact arguments
+#   act          ask       changes outside Athena (start or stop something on a server)
+#   communicate  ask       anything that leaves Athena (mail, messages)
+#   remember     allow     store a fact about you in memory; you see and edit everything in the Memory view
+#
+# untrusted: true marks tools whose results come from outside (web pages, mail, documents). Once a conversation has
+# read one, every act and communicate call asks again, even when a rule or an earlier "always" would allow it.
+
+tools:
+  # mcp-web
+  - {match: "web__search", class: read, untrusted: true}
+  - {match: "web__fetch", class: read, untrusted: true}
+  # mcp-sources (Wikipedia, arXiv, GitHub): text written by others
+  - {match: "sources__*", class: read, untrusted: true}
+  # mcp-everyday (weather, places, travel, money, time, calculator): structured data from fixed public APIs
+  - {match: "everyday__*", class: read}
+  # memory
+  - {match: "memory__search", class: read}
+  - {match: "memory__remember", class: remember}
+  - {match: "memory__forget", class: write}
+  # mcp-notes: notes and reminders
+  - {match: "notes__search", class: read}
+  - {match: "notes__get", class: read}
+  - {match: "notes__reminders", class: read}
+  - {match: "notes__*", class: write}
+  # notify
+  - {match: "notify__recipients", class: read}
+  - {match: "notify__send", class: communicate}
+  # cluster tools (when deployed): read-only status, and the listed actions
+  - {match: "cluster__logs", class: read, untrusted: true}   # log lines are text written by programs
+  - {match: "cluster__*", class: read}
+  - {match: "cluster_act__actions", class: read}
+  - {match: "cluster_act__*", class: act}
+
+# defaults:
+#   write: ask_once
+
+rules:
+  # first match wins; args must all match; "re:<regexp>" matches the whole value
+  - {tool: "notify__send", args: {to: owner}, decision: allow, note: "mail to yourself needs no approval"}
+  # - {tool: "cluster_act__gpu_acquire", args: {consumer: llm}, decision: allow, note: "the chat model may always have the GPU"}
+
+jobs:
+  # what a scheduled job may do without you; anything else is queued in Approvals and you are notified.
+  # The job's result reaches you anyway: core stores it as a notification and mails it (NOTIFY_URL), no tool call needed.
+  allow: [read, remember]
+
+limits:
+  rounds_per_turn: 8     # model calls with tools in one turn; the last round must answer
+  calls_per_minute: 30   # tool calls per conversation per minute

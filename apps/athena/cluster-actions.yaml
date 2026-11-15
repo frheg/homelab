@@ -1,0 +1,7 @@
+# What mcp-cluster-act may do on kratos. Its service account allows exactly this too (RoleBindings in athena.yaml).
+restart:
+  - {name: searxng, namespace: searxng, selector: app=searxng, note: "web search; a restart clears suspended engines"}
+  - {name: makeup-demo, namespace: makeup-demo, selector: app=makeup-search, note: "Makeup Search with synthetic data"}
+gpu:
+  consumers: [llm]
+  max_ttl: 2h
