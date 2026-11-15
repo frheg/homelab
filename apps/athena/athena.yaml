@@ -2,8 +2,7 @@
 # environment only. On kratos it uses the platform's Postgres, SearXNG, llm gateways, gpuctl and VictoriaMetrics.
 #   http://kratos/athena/   behind the platform basic-auth; Traefik is the gate, so core runs without API_TOKEN
 # Images are published with athena's scripts/publish. Policy and cluster actions: policy.yaml, cluster-actions.yaml.
-# Memory runs on word search for now (no embedding server on the platform yet); set EMBED_URL and QDRANT_URL
-# on memory, and label the namespace qdrant.kratos/access=true, when one exists.
+# Memory embeds with bge-m3 on llm-cpu and keeps vectors in Qdrant (falls back to word search when either is down).
 # Each pod may reach DNS and exactly what it needs (NetworkPolicies at the end).
 apiVersion: v1
 kind: Namespace
@@ -15,6 +14,7 @@ metadata:
     llm.kratos/access: "true"
     gpu.kratos/access: "true" # mcp-cluster-read (status) and mcp-cluster-act (acquire, release) only, see egress
     monitoring.kratos/access: "true" # mcp-cluster-read's metrics queries
+    qdrant.kratos/access: "true" # memory only, see egress
 ---
 # ---------- core ----------
 apiVersion: apps/v1
@@ -206,7 +206,11 @@ spec:
           image: kratos:5000/athena-memory@sha256:2b473aa07b99d7aebbdfa2caebf44d5ec215b25dff0c904c2ad63b7f6fafad92 # 0.2.0
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: MEMORY_DATABASE_URL } } }
+            - { name: QDRANT_URL, value: "http://qdrant.qdrant:6333" }
             - { name: QDRANT_COLLECTION, value: athena_memory }
+            - { name: EMBED_URL, value: "http://llm-cpu.llm/v1" }
+            - { name: EMBED_MODEL, value: bge-m3 }
+            - { name: RECALL_MIN_SCORE, value: "0.55" } # bge-m3: unrelated text scores about 0.4-0.5, related questions 0.6+
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_MEMORY } } }
           ports: [{ containerPort: 8080 }]
           readinessProbe: { httpGet: { path: /ready, port: 8080 } }
@@ -516,6 +520,18 @@ spec:
   egress:
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: postgres } } }]
       ports: [{ port: 5432 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: memory-out, namespace: athena }
+spec:
+  podSelector: { matchLabels: { app: memory } }
+  policyTypes: [Egress]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: llm } }, podSelector: { matchLabels: { app: llm-cpu } } }]
+      ports: [{ port: 8080 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: qdrant } } }]
+      ports: [{ port: 6333 }]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

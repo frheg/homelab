@@ -96,14 +96,14 @@ spec:
 ---
 # CPU-only gateway. Not a gpuctl consumer: it has no GPU claim, so it keeps working
 # while the GPU is reserved or used by another service. Models are in system RAM.
-# Scaled to 0: it has no models now. Set replicas to 1 when a small model (an embedding model, say) is added.
+# Serves bge-m3 (embeddings for Athena memory). About 1 GB while a model is loaded; llama-swap unloads it after its ttl.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: llm-cpu
   namespace: llm
 spec:
-  replicas: 0
+  replicas: 1
   strategy: { type: Recreate }
   selector: { matchLabels: { app: llm-cpu } }
   template:
@@ -125,7 +125,7 @@ spec:
             httpGet: { path: /health, port: 8080 }
           resources:
             requests: { cpu: 500m, memory: 512Mi }
-            limits: { memory: 8Gi } # models under 10B
+            limits: { memory: 8Gi } # models under 10B; bge-m3 needs about 1 GB
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

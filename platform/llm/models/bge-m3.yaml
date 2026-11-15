@@ -1,0 +1,9 @@
+# Embeddings for Athena's memory (EN and NO). XLM-RoBERTa, 568M params, 1024 dims, CLS pooling, 8192 ctx.
+# ggml-org/bge-m3-Q8_0-GGUF at 9eba04c5, sha256 aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173.
+# An encoder needs each input in one ubatch, so ubatch is the full context. About 1 GB of RAM when loaded.
+runtime: cpu
+params: 0.57 # total, in billions
+description: "Embeddings: multilingual, /v1/embeddings"
+ttl: 1800
+cmd: >-
+  /app/llama-server --port 9999 -m /models/bge-m3-q8_0.gguf -ngl 0 --embedding --pooling cls --ctx-size 8192 --batch-size 8192 --ubatch-size 8192 --threads 4 --parallel 1
