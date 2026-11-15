@@ -1,5 +1,6 @@
 # n-cpu-moe 12, ctx 32768: 15.3GB, about 1GB headroom. Fastest of the four base models.
 runtime: gpu
+params: 33 # total, in billions
 description: "EXPERIMENTAL: Poolside coding model, 33B/8B active"
 ttl: 600
 cmd: >-

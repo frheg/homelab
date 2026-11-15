@@ -16,8 +16,8 @@ func write(t *testing.T, dir, name, body string) {
 	}
 }
 
-const gpuModel = "runtime: gpu\ndescription: d\nttl: 600\ncmd: >-\n  /app/llama-server --port 9999\n  -m /models/a.gguf -ngl 999\n"
-const cpuModel = "runtime: cpu\ndescription: d\nttl: 600\ncmd: >-\n  /app/llama-server --port 9999\n  -m /models/b.gguf -ngl 0 -t 8\n"
+const gpuModel = "runtime: gpu\nparams: 35\ndescription: d\nttl: 600\ncmd: >-\n  /app/llama-server --port 9999\n  -m /models/a.gguf -ngl 999\n"
+const cpuModel = "runtime: cpu\nparams: 4\ndescription: d\nttl: 600\ncmd: >-\n  /app/llama-server --port 9999\n  -m /models/b.gguf -ngl 0 -t 8\n"
 
 func TestModelsAreSplitByRuntime(t *testing.T) {
 	d := t.TempDir()
@@ -54,6 +54,8 @@ func TestOtherMistakesAreRejected(t *testing.T) {
 		"port":    strings.Replace(gpuModel, "--port 9999", "--port 8080", 1),
 		"model":   strings.Replace(gpuModel, "-m /models/a.gguf", "-m /tmp/a.gguf", 1),
 		"unknown": gpuModel + "colour: red\n",
+		"params":  strings.Replace(gpuModel, "params: 35", "params: 0", 1),
+		"bigcpu":  strings.Replace(cpuModel, "params: 4", "params: 30", 1),
 	}
 	for name, body := range cases {
 		d := t.TempDir()

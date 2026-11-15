@@ -1,0 +1,4 @@
+# Read pod status from the cluster (service account homepage, read-only). No ingress discovery: tiles are listed by hand.
+mode: cluster
+ingress: false
+traefik: false

@@ -1,9 +1,13 @@
 # Every UI on kratos. Numbers come from VictoriaMetrics (platform-ui has monitoring.kratos/access).
-# Not linked on purpose: the llama-swap UIs (their Activity page shows recent prompts and answers).
+# Each tile shows whether its pods run (namespace and podSelector, read through the homepage service account).
+# A service that is off keeps its tile and link; the page answers once the service is started.
+# llm-confidential has no UI link on purpose: it serves confidential prompts.
 - Athena:
     - Athena:
         href: /athena/
         description: Personal assistant. Chat, approvals, memory, jobs
+        namespace: athena
+        podSelector: app=core
         widget:
           type: prometheusmetric
           url: http://victoria.monitoring:8428
@@ -13,6 +17,48 @@
               query: sum(kube_pod_status_ready{namespace="athena",condition="true"}) or vector(0)
             - label: Restarts, 1 h
               query: sum(kube_pod_container_status_restarts_total{namespace="athena"} - (kube_pod_container_status_restarts_total{namespace="athena"} offset 1h)) or vector(0)
+- Services:
+    - llama.cpp:
+        href: http://kratos:8401/ui/
+        description: The model gateway (llama-swap). Models, activity, logs. Opening it does not take the GPU
+        namespace: llm
+        podSelector: app=llm
+        showStats: true
+    - Qdrant:
+        href: http://kratos:8402/dashboard
+        description: Vector database. Collections, points, search
+        namespace: qdrant
+        podSelector: app=qdrant
+        showStats: true
+    - Neo4j:
+        href: http://kratos:8403/browser/
+        description: Graph database. Connect to neo4j://kratos:7687 with the Neo4j login
+        namespace: neo4j
+        podSelector: app=neo4j
+        showStats: true
+    - Postgres:
+        href: http://kratos:8405/
+        description: pgweb, read-only. Host postgres.postgres, port 5432, a database role
+        namespace: postgres
+        podSelector: app=postgres
+        showStats: true
+    - SearXNG:
+        href: http://kratos:8404/
+        description: Web search used by Athena and others
+        namespace: searxng
+        podSelector: app=searxng
+        showStats: true
+    - VictoriaMetrics:
+        href: http://kratos:8406/vmui/
+        description: Metrics store. Query anything (PromQL)
+        namespace: monitoring
+        podSelector: app=victoria
+        showStats: true
+    - Alertmanager:
+        href: http://kratos:8407/
+        description: Firing alerts and silences
+        namespace: monitoring
+        podSelector: app=alertmanager
 - Monitoring:
     - Overview:
         href: /grafana/

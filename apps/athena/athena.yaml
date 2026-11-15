@@ -38,8 +38,6 @@ spec:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: DATABASE_URL } } }
             - { name: LLM_URL, value: "http://llm.llm/v1" }
             - { name: LLM_MODEL, value: qwen3.6-35b }
-            - { name: LLM_FALLBACK_URL, value: "http://llm-cpu.llm/v1" }
-            - { name: LLM_FALLBACK_MODEL, value: nemotron-3.5-lightning-cpu }
             - name: TOOL_SERVERS
               value: web=http://mcp-web/mcp,sources=http://mcp-sources/mcp,everyday=http://mcp-everyday/mcp,notes=http://mcp-notes/mcp,memory=http://memory/mcp,notify=http://notify/mcp,cluster=http://mcp-cluster-read/mcp,cluster_act=http://mcp-cluster-act/mcp
             - { name: TOOL_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: TOOL_TOKENS } } }

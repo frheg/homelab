@@ -9,6 +9,7 @@ spec:
     metadata: { labels: { app: homepage } }
     spec:
       enableServiceLinks: false
+      serviceAccountName: homepage
       # Homepage writes /app/config/logs, so config must be on a writable
       # volume: copy the ConfigMap in at start.
       initContainers:

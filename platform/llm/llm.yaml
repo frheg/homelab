@@ -1,7 +1,8 @@
 # Shared LLM gateways (llama-swap). One model is loaded at a time per gateway, others
 # swap in on demand. Projects call a gateway and never run their own llama.
 #   llm      GPU models (VRAM and RAM split). A gpuctl consumer, http://llm.llm
-#   llm-cpu  CPU-only models. Always available, no GPU, http://llm-cpu.llm
+#   llm-cpu  small CPU-only models (under 10B, checked by llmconf), http://llm-cpu.llm. Off while it has none.
+# The rule: one LLM at a time on the GPU, never two; only a small model may run on the CPU next to it.
 # Models are one file each in models/, the two configs are generated: services/llmconf.
 # It is a GPU consumer: gpuctl decides when it runs, so replicas is NOT set here.
 apiVersion: v1
@@ -95,12 +96,14 @@ spec:
 ---
 # CPU-only gateway. Not a gpuctl consumer: it has no GPU claim, so it keeps working
 # while the GPU is reserved or used by another service. Models are in system RAM.
+# Scaled to 0: it has no models now. Set replicas to 1 when a small model (an embedding model, say) is added.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: llm-cpu
   namespace: llm
 spec:
+  replicas: 0
   strategy: { type: Recreate }
   selector: { matchLabels: { app: llm-cpu } }
   template:
@@ -121,8 +124,8 @@ spec:
           readinessProbe:
             httpGet: { path: /health, port: 8080 }
           resources:
-            requests: { cpu: "2", memory: 2Gi }
-            limits: { memory: 26Gi }
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { memory: 8Gi } # models under 10B
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

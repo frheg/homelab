@@ -2,6 +2,7 @@
 # about 500MB headroom. Sibling models had CUDA crashes, this one was stable over a 
 # 6000-token run.
 runtime: gpu
+params: 30 # total, in billions
 description: "Long-context hybrid Mamba2/Attention/MoE, 30B/3B active"
 ttl: 600
 cmd: >-

@@ -2,6 +2,7 @@
 # Needs llama.cpp build 10450 or newer, older builds silently corrupt output on the 
 # DeltaNet CUDA path. Offload blk 0-12 plus MTP, ctx 16384: 14.77GB, 20.1 tok/s.
 runtime: gpu
+params: 27 # total, in billions
 description: "EXPERIMENTAL: dense 27B coding model, MTP speculative decode"
 ttl: 600
 cmd: >-

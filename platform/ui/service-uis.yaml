@@ -1,0 +1,257 @@
+# The platform services' own web UIs, each on its own port of kratos behind the same basic-auth as the start page.
+# They cannot live under a path (/qdrant/...): they load files and call their APIs at the site root.
+#   http://kratos:8401  llama.cpp gateway (llama-swap: models, activity, logs). Not llm-confidential.
+#   http://kratos:8402  Qdrant dashboard (/dashboard)
+#   http://kratos:8403  Neo4j Browser; it also needs bolt on kratos:7687 (Neo4j's own login, no basic-auth on TCP)
+#   http://kratos:8404  SearXNG
+#   http://kratos:8405  Postgres (pgweb, read-only; log in with a database role)
+#   http://kratos:8406  VictoriaMetrics (/vmui)
+#   http://kratos:8407  Alertmanager
+# A service that is off (replicas 0) keeps its route: the page answers 503 until it is started.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata: { name: traefik, namespace: kube-system }
+spec:
+  valuesContent: |-
+    ports:
+      # existing routes stay on web and websecure only; without asDefault they would also appear on the new ports
+      web: { asDefault: true }
+      websecure: { asDefault: true }
+      ui-llm: { port: 8401, exposedPort: 8401, expose: { default: true }, protocol: TCP }
+      ui-qdrant: { port: 8402, exposedPort: 8402, expose: { default: true }, protocol: TCP }
+      ui-neo4j: { port: 8403, exposedPort: 8403, expose: { default: true }, protocol: TCP }
+      bolt: { port: 7687, exposedPort: 7687, expose: { default: true }, protocol: TCP }
+      ui-searxng: { port: 8404, exposedPort: 8404, expose: { default: true }, protocol: TCP }
+      ui-postgres: { port: 8405, exposedPort: 8405, expose: { default: true }, protocol: TCP }
+      ui-victoria: { port: 8406, exposedPort: 8406, expose: { default: true }, protocol: TCP }
+      ui-alerts: { port: 8407, exposedPort: 8407, expose: { default: true }, protocol: TCP }
+---
+# ---------- routes: one per port, all behind the basic-auth ----------
+# llm-backend is llama-swap itself, not the gpuproxy in front of it: opening the UI must not take the GPU.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui
+  namespace: llm
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: ui-llm
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: llm-backend, port: { number: 80 } } } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui
+  namespace: qdrant
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: ui-qdrant
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: qdrant, port: { number: 6333 } } } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui
+  namespace: neo4j
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: ui-neo4j
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: neo4j, port: { number: 7474 } } } }
+---
+# Bolt is plain TCP: Traefik passes it through and Neo4j checks its own login.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata: { name: bolt, namespace: neo4j }
+spec:
+  entryPoints: [bolt]
+  routes:
+    - match: HostSNI(`*`)
+      services: [{ name: neo4j, port: 7687 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui
+  namespace: searxng
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: ui-searxng
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: searxng, port: { number: 80 } } } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui
+  namespace: pgweb
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: ui-postgres
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: pgweb, port: { number: 80 } } } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui-victoria
+  namespace: monitoring
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: ui-victoria
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: victoria, port: { number: 8428 } } } }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ui-alerts
+  namespace: monitoring
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: ui-alerts
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: alertmanager, port: { number: 9093 } } } }
+---
+# ---------- network: Traefik (kube-system) may reach exactly these UI ports ----------
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-ui, namespace: llm }
+spec:
+  podSelector: { matchLabels: { app: llm } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-ui, namespace: qdrant }
+spec:
+  podSelector: { matchLabels: { app: qdrant } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 6333 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-ui, namespace: neo4j }
+spec:
+  podSelector: { matchLabels: { app: neo4j } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 7474 }, { port: 7687 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-ui, namespace: searxng }
+spec:
+  podSelector: { matchLabels: { app: searxng } }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 8080 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: allow-ui, namespace: monitoring }
+spec:
+  podSelector: { matchExpressions: [{ key: app, operator: In, values: [victoria, alertmanager] }] }
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 8428 }, { port: 9093 }]
+---
+# ---------- pgweb: a small Postgres UI ----------
+# No stored password: log in on the page with a database role. Read-only, so browsing cannot change data.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pgweb
+  labels:
+    postgres.kratos/access: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: pgweb, namespace: pgweb }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: pgweb } }
+  template:
+    metadata:
+      labels: { app: pgweb }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534 }
+      containers:
+        - name: pgweb
+          image: sosedoff/pgweb@sha256:a5256d416e2e8b92d69a4459058e3eca33a9f075d8325491644411d0bc3bd70b # 0.17.0
+          args: [pgweb, --bind=0.0.0.0, --listen=8081, --sessions, --readonly, --no-ssh, --skip-open]
+          env:
+            - { name: HOME, value: /tmp } # pgweb keeps bookmarks under HOME
+          ports: [{ containerPort: 8081 }]
+          readinessProbe: { httpGet: { path: /, port: 8081 } }
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { memory: 128Mi }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: pgweb, namespace: pgweb }
+spec:
+  selector: { app: pgweb }
+  ports: [{ port: 80, targetPort: 8081 }]
+---
+# In: Traefik only. Out: DNS and Postgres.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: pgweb, namespace: pgweb }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 8081 }]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: postgres } } }]
+      ports: [{ port: 5432 }]

@@ -51,6 +51,13 @@ first, then the code.
 - No em-dashes, no filler, no marketing words.
 - Comment the why, not the what. Skip comments the code already says.
 
+## One LLM at a time
+
+- Exactly one LLM runs on the GPU at any time, never two. gpuctl gives the GPU to one consumer, and each
+  gateway (llama-swap) loads one model at a time.
+- Only a small model, under 10B total parameters, may run on the CPU next to it (embeddings, say).
+  llmconf rejects a `runtime: cpu` model of 10B or more. A big CPU model starves the GPU model of RAM and CPU.
+
 ## GPU consumers
 
 - Label the Deployment and its pod template `gpu.kratos/consumer=<name>`.

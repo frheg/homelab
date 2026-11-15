@@ -1,6 +1,7 @@
 # Only 2 kv-heads, so context stays cheap. n-cpu-moe 32, ctx 262144: 15.1GB, about 1.2GB 
 # headroom. Slow (25-28 tok/s), use only when the context length needs it.
 runtime: gpu
+params: 80 # total, in billions
 description: "Long-context specialist: 80B/3B active, full 262144 context"
 ttl: 600
 cmd: >-

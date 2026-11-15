@@ -6,6 +6,8 @@ resources:
   - headlamp.yaml
   - headlamp-rbac.yaml
   - homepage.yaml
+  - homepage-rbac.yaml
+  - service-uis.yaml
   - panel.yaml
   - ingress.yaml
 configMapGenerator:

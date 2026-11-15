@@ -1,6 +1,7 @@
 // llmconf builds the llama-swap configs from one file per model.
 //
-//	platform/llm/models/<name>.yaml        runtime: gpu|cpu, description, ttl, cmd, confidential (optional)
+//	platform/llm/models/<name>.yaml        runtime: gpu|cpu, params (total, in billions), description, ttl, cmd,
+//	                                       confidential (optional). A cpu model must be under 10B.
 //	platform/llm/config-gpu.yaml           generated, models with runtime gpu
 //	platform/llm/config-cpu.yaml           generated, models with runtime cpu
 //	platform/llm/config-confidential.yaml  generated, gpu models marked confidential, for the llm-confidential
@@ -23,11 +24,12 @@ import (
 )
 
 type model struct {
-	Runtime      string `yaml:"runtime"`
-	Description  string `yaml:"description"`
-	TTL          int    `yaml:"ttl"`
-	Cmd          string `yaml:"cmd"`
-	Confidential bool   `yaml:"confidential"`
+	Runtime      string  `yaml:"runtime"`
+	Params       float64 `yaml:"params"` // total parameters in billions (all experts of a MoE, not only the active ones)
+	Description  string  `yaml:"description"`
+	TTL          int     `yaml:"ttl"`
+	Cmd          string  `yaml:"cmd"`
+	Confidential bool    `yaml:"confidential"`
 }
 
 type entry struct {
@@ -71,6 +73,13 @@ func validate(name string, m model) []string {
 		}
 	default:
 		add("runtime must be gpu or cpu, got %q", m.Runtime)
+	}
+	if m.Params <= 0 {
+		add("params must be the total parameter count in billions, for example 35")
+	}
+	// one model at a time on the GPU; next to it, only a small model may run on the CPU
+	if m.Runtime == "cpu" && m.Params >= 10 {
+		add("runtime cpu is only for models under 10B total parameters (this one has %gB): a big CPU model next to the GPU model starves it of memory and CPU", m.Params)
 	}
 	if m.Confidential && m.Runtime != "gpu" {
 		add("confidential models run on the llm-confidential gateway, which is a gpu gateway: runtime must be gpu")

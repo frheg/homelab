@@ -2,6 +2,7 @@ title: kratos
 headerStyle: clean
 layout:
   Athena: { style: row, columns: 2 }
+  Services: { style: row, columns: 4 }
   Monitoring: { style: row, columns: 4 }
   GPU: { style: row, columns: 2 }
   Thesis: { style: row, columns: 2 }

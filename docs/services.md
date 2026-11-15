@@ -23,7 +23,7 @@ Pod total is about 26 Gi and 13.5 cores (`docs/monitoring.md`). Host: i5-14400F,
 | Neo4j | default, soft dependency | neo4j | - | - | 6 Gi | 4.5 Gi | profile, pauses while Strata runs | internal |
 | SearXNG | default | searxng | - | - | 512 Mi | 128 Mi | profile | public |
 | llm (llama.cpp via llama-swap, GPU) | default consumer | llm | gpuctl | yes | 24 Gi | 355 Mi | gpuproxy | internal |
-| llm-cpu (GPU plus CPU offload for big models) | default consumer | llm | gpuctl | yes | 26 Gi | - | gpuproxy | internal |
+| llm-cpu (small CPU-only models under 10B; none now, scaled to 0) | default | llm | - | - | 8 Gi | 0 | off until a small model is added | internal |
 | llm-confidential (llama-swap, models marked `confidential`, keeps no captures or logs) | interactive consumer | llm-confidential | gpuctl | yes | 24 Gi | measure | gpuproxy | confidential |
 | Makeup Search, synthetic (`/makeup-demo/`) | default | makeup-demo | llm | via llm | 2 Gi | measure | always on | public |
 | Makeup Search, real Odfjell data (`/makeup/`) | default | makeup | llm-confidential | via llm-confidential | 8 Gi | measure | always on | confidential |

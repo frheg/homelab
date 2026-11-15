@@ -45,7 +45,7 @@ Exit codes: 0 ok, 1 error, 2 refused (busy or reserved).
 ## Use the LLM
 
 From a pod: http://llm.llm/v1/chat/completions (GPU models) or
-http://llm-cpu.llm/v1/chat/completions (CPU-only models, always available).
+http://llm-cpu.llm/v1/chat/completions (small CPU-only models under 10B; off while there are none).
 The pod namespace must be labelled `llm.kratos/access=true`.
 From your shell: `kubectl -n llm port-forward deploy/llm 18080:8080`.
 Models are files in /srv/models, listed in platform/llm/llm.yaml.

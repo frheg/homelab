@@ -2,6 +2,7 @@
 # described in the old HomeLab docs/MODEL_COMPARISON_2026-08-03.md. This is the default 
 # model of the HomeLab API.
 runtime: gpu
+params: 27 # total, in billions
 description: "EXPERIMENTAL: Q3_K_XL of qwen3.8-27b, all on GPU, long context, low reasoning effort"
 ttl: 600
 cmd: >-
