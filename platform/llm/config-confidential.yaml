@@ -6,6 +6,6 @@ captureBuffer: 0
 models:
     qwen3.6-35b:
         description: 'Default: general-purpose, agentic tool use, sees images, MTP speculative decode'
-        cmd: /app/llama-server --port 9999 -m /models/Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL.gguf --mmproj /models/Qwen3.6-35B-A3B-mmproj-F16.gguf -ngl 999 --n-cpu-moe 19 --ctx-size 65536 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1
+        cmd: /app/llama-server --port 9999 -m /models/Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL.gguf --mmproj /models/Qwen3.6-35B-A3B-mmproj-F16.gguf -ngl 999 --n-cpu-moe 20 --ctx-size 65536 --batch-size 2048 --ubatch-size 1024 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1
         proxy: http://127.0.0.1:9999
         ttl: 600
