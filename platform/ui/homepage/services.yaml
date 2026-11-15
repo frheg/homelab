@@ -1,5 +1,18 @@
 # Every UI on kratos. Numbers come from VictoriaMetrics (platform-ui has monitoring.kratos/access).
 # Not linked on purpose: the llama-swap UIs (their Activity page shows recent prompts and answers).
+- Athena:
+    - Athena:
+        href: /athena/
+        description: Personal assistant. Chat, approvals, memory, jobs
+        widget:
+          type: prometheusmetric
+          url: http://victoria.monitoring:8428
+          refreshInterval: 30000
+          metrics:
+            - label: Pods ready
+              query: sum(kube_pod_status_ready{namespace="athena",condition="true"}) or vector(0)
+            - label: Restarts, 1 h
+              query: sum(kube_pod_container_status_restarts_total{namespace="athena"} - (kube_pod_container_status_restarts_total{namespace="athena"} offset 1h)) or vector(0)
 - Monitoring:
     - Overview:
         href: /grafana/
