@@ -33,7 +33,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: core
-          image: kratos:5000/athena-core@sha256:19bc129fd36d946da5d84cb5691105f678766912c382f975dbf91fa0d6430a46 # 0.3.1
+          image: kratos:5000/athena-core@sha256:a325d1b5dc8fa9fe4395987566cbe62e5381afd6ccab03ad368d19e1af842bd5 # 0.4.0
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: DATABASE_URL } } }
             - { name: LLM_URL, value: "http://llm.llm/v1" }
@@ -46,6 +46,8 @@ spec:
             - { name: FILES_URL, value: "http://files" }
             - { name: FILES_TOKEN, valueFrom: { secretKeyRef: { name: athena, key: TOKEN_FILES } } }
             - { name: VISION_MODELS, value: qwen3.6-35b } # the models started with --mmproj (platform/llm/models)
+            - { name: TTS_URL, value: "http://speech/v1" }
+            - { name: TTS_TOKEN, valueFrom: { secretKeyRef: { name: athena, key: TOKEN_SPEECH } } }
             - { name: NOTIFY_URL, value: "http://notify" }
             - { name: NOTIFY_TOKEN, valueFrom: { secretKeyRef: { name: athena, key: TOKEN_NOTIFY } } }
             - { name: REMINDERS_URL, value: "http://mcp-notes" }
@@ -81,7 +83,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 101, runAsGroup: 101 }
       containers:
         - name: ui
-          image: kratos:5000/athena-ui@sha256:837b7e66ccfde7bb0f4eedd09ad76dc9f5ad596e7d5425f1f8ac80f870db63dc # 0.3.1
+          image: kratos:5000/athena-ui@sha256:16a52c23a676f01755eac9739a8d8d75d7e34f84bfc9e8b0b72eca27fd95e2d4 # 0.4.0
           ports: [{ containerPort: 8080 }]
           readinessProbe: { httpGet: { path: /health, port: 8080 } }
           resources:
@@ -109,7 +111,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-web
-          image: kratos:5000/athena-mcp-web@sha256:15b174a7677634a396830cbff29ce42f94b2b0f1e8bc2b92e7dedbe535138438 # 0.3.1
+          image: kratos:5000/athena-mcp-web@sha256:49c512d797fa373f8a8be77da95756f4b46086a1abde2d35cc1a66cdfb61f56b # 0.4.0
           env:
             - { name: SEARXNG_URL, value: "http://searxng.searxng" }
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_WEB } } }
@@ -133,7 +135,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-sources
-          image: kratos:5000/athena-mcp-sources@sha256:63fc14d586a34cdf379b365a3aa32be6e1be75c7a07c2ce1294894ed2d6cbff8 # 0.3.1
+          image: kratos:5000/athena-mcp-sources@sha256:2882a5b99e35bc57303431bc1bd4b2375ca64621d57ab2acd78dac5f725f4406 # 0.4.0
           env:
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_SOURCES } } }
             - { name: GITHUB_TOKEN, valueFrom: { secretKeyRef: { name: athena, key: GITHUB_TOKEN, optional: true } } }
@@ -157,7 +159,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-everyday
-          image: kratos:5000/athena-mcp-everyday@sha256:4af23691e308b5393c0cb77d9e89d9596c6bddad9013dca4e135086521f31ac9 # 0.3.1
+          image: kratos:5000/athena-mcp-everyday@sha256:018d4e933a7fca81e72a1504654d3de7054cf0e9fedeb96cfbc788911202e458 # 0.4.0
           env:
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_EVERYDAY } } }
             - { name: ENTUR_CLIENT_NAME, value: athena-personal }
@@ -181,7 +183,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-notes
-          image: kratos:5000/athena-mcp-notes@sha256:3582e87f347df4620d80565b91104899b5c7a4ed092ffe64f41e4d1ded4c09b2 # 0.3.1
+          image: kratos:5000/athena-mcp-notes@sha256:28f5983024da80b5ef1cffb4f99e8dee29d45ddf6d1c38ddb151c7081f648239 # 0.4.0
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: NOTES_DATABASE_URL } } }
             - { name: TIME_ZONE, value: Europe/Oslo }
@@ -206,7 +208,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: memory
-          image: kratos:5000/athena-memory@sha256:70173b0ef67c88f71e209563da1e956e42c41b8c95e8bed9017a93ac8c8d269d # 0.3.1
+          image: kratos:5000/athena-memory@sha256:986749fb56d0a40336fdd677fd874cb3bfa062679b77962d1dc86de6dc3ba1e5 # 0.4.0
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: MEMORY_DATABASE_URL } } }
             - { name: QDRANT_URL, value: "http://qdrant.qdrant:6333" }
@@ -235,7 +237,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: notify
-          image: kratos:5000/athena-notify@sha256:593d3afacfddb97b1fe341f736c55d19efb2be7f1d0b1a0c37f0843702f2acce # 0.3.1
+          image: kratos:5000/athena-notify@sha256:5cb6a2cf468a570d70b736e7829352dd2a704c478fffc1a2ee0a7daf2c2b5bf3 # 0.4.0
           env:
             - { name: RECIPIENTS, valueFrom: { secretKeyRef: { name: athena, key: RECIPIENTS } } }
             - { name: SMTP_HOST, valueFrom: { secretKeyRef: { name: athena, key: SMTP_HOST, optional: true } } }
@@ -265,7 +267,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: files
-          image: kratos:5000/athena-files@sha256:5ef4d737769ffcc602e88c135c6becd0593bd8ad2de93c5662703997b78c46e0 # 0.3.1
+          image: kratos:5000/athena-files@sha256:d4819f17018fbc6efafc0d34ab616a38d277f95d334f8d646bc4cdba4f8de0ff # 0.4.0
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: FILES_DATABASE_URL } } }
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_FILES } } }
@@ -274,6 +276,35 @@ spec:
           # decoding a large photo for its preview takes a few hundred MB for a moment
           resources: { requests: { cpu: 10m, memory: 32Mi }, limits: { memory: 768Mi } }
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+---
+# Answers read aloud: Piper voices on the CPU (Norwegian and English). No network but core.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: speech, namespace: athena }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: speech } }
+  template:
+    metadata:
+      labels: { app: speech }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
+      containers:
+        - name: speech
+          image: kratos:5000/athena-speech@sha256:019272a7b32f167ea1fdce16afb2061a373a5cb33c06600066507da97f611e97 # 0.4.0
+          env:
+            - { name: TOKENS, valueFrom: { secretKeyRef: { name: athena, key: SPEECH_TOKENS } } }
+          ports: [{ containerPort: 8080 }]
+          readinessProbe: { httpGet: { path: /ready, port: 8080 } }
+          resources: { requests: { cpu: 20m, memory: 128Mi }, limits: { memory: 1Gi } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: { sizeLimit: 64Mi }
 ---
 # ---------- cluster servers ----------
 # Read: get and list on pods, logs, deployments, events in the namespaces bound below, and nodes. Confidential
@@ -364,7 +395,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-cluster-read
-          image: kratos:5000/athena-mcp-cluster-read@sha256:b46f25cfb8d50bef666221f547fc4eaebddc6310f76d4ad420bbcd79c5531354 # 0.3.1
+          image: kratos:5000/athena-mcp-cluster-read@sha256:f1efae1c43260ba62f4f34a41b5c7c982f88246482b7164e0e6d05c3b31a6560 # 0.4.0
           env:
             - { name: NAMESPACES, value: "athena,llm,homelab,makeup-demo,searxng,monitoring,gpu-system,flux-system" }
             - { name: GPUCTL_URL, value: "http://gpuctl.gpu-system" }
@@ -413,7 +444,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-cluster-act
-          image: kratos:5000/athena-mcp-cluster-act@sha256:4305f315ad0f358f8200fa808c23b58949153130d32dd2aed1d6be1b775ab43d # 0.3.1
+          image: kratos:5000/athena-mcp-cluster-act@sha256:a9d0721eb6ba2bfb7aca883ee41837601cf91d66a043c0680276157f62a1c8be # 0.4.0
           env:
             - { name: ACTIONS_FILE, value: /etc/athena/cluster-actions.yaml }
             - { name: GPUCTL_URL, value: "http://gpuctl.gpu-system" }
@@ -476,6 +507,11 @@ spec: { selector: { app: files }, ports: [{ port: 80, targetPort: 8080 }] }
 ---
 apiVersion: v1
 kind: Service
+metadata: { name: speech, namespace: athena }
+spec: { selector: { app: speech }, ports: [{ port: 80, targetPort: 8080 }] }
+---
+apiVersion: v1
+kind: Service
 metadata: { name: mcp-cluster-read, namespace: athena }
 spec: { selector: { app: mcp-cluster-read }, ports: [{ port: 80, targetPort: 8080 }] }
 ---
@@ -514,7 +550,7 @@ spec:
   podSelector: { matchLabels: { app: core } }
   policyTypes: [Egress]
   egress:
-    - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [mcp-web, mcp-sources, mcp-everyday, mcp-notes, memory, notify, files, mcp-cluster-read, mcp-cluster-act] }] } }]
+    - to: [{ podSelector: { matchExpressions: [{ key: app, operator: In, values: [mcp-web, mcp-sources, mcp-everyday, mcp-notes, memory, notify, files, speech, mcp-cluster-read, mcp-cluster-act] }] } }]
       ports: [{ port: 8080 }]
     - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: llm } } }]
       ports: [{ port: 8080 }]
@@ -526,7 +562,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata: { name: tools-in, namespace: athena }
 spec:
-  podSelector: { matchExpressions: [{ key: app, operator: In, values: [mcp-web, mcp-sources, mcp-everyday, mcp-notes, memory, notify, files, mcp-cluster-read, mcp-cluster-act] }] }
+  podSelector: { matchExpressions: [{ key: app, operator: In, values: [mcp-web, mcp-sources, mcp-everyday, mcp-notes, memory, notify, files, speech, mcp-cluster-read, mcp-cluster-act] }] }
   policyTypes: [Ingress]
   ingress:
     - from: [{ podSelector: { matchLabels: { app: core } } }]
