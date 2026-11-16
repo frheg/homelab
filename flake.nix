@@ -76,7 +76,19 @@
         text = builtins.readFile ./scripts/say;
       };
 
-      tools = builtins.mapAttrs bin goTools // { inherit camview say; };
+      # athena-live: talking with Athena on kratos (scripts/athena-live), with speech recognition and its model
+      whisperSmall = pkgs.fetchurl {
+        url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin";
+        sha256 = "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb";
+      };
+      athena-live = pkgs.writeShellApplication {
+        name = "athena-live";
+        runtimeInputs = with pkgs; [ whisper-cpp curl coreutils ];
+        runtimeEnv.WHISPER_MODEL = whisperSmall;
+        text = builtins.readFile ./scripts/athena-live;
+      };
+
+      tools = builtins.mapAttrs bin goTools // { inherit camview say athena-live; };
     in {
       packages.x86_64-linux = bins // tools
         // builtins.listToAttrs (map
