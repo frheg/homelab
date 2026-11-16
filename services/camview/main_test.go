@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"strings"
 	"testing"
@@ -36,5 +37,23 @@ func TestRender(t *testing.T) {
 	render(&b, []byte{200, 10, 10, 200, 10, 10, 10, 10, 200}, 3, 1, 0, options{ramp: []rune(ramps["blocks"]), color: true})
 	if s := b.String(); strings.Count(s, "\x1b[38;2;") != 2 || !strings.HasSuffix(s, "\x1b[0m") {
 		t.Fatalf("a colour code only when the colour changes: %q", s)
+	}
+}
+
+func TestNextJPEG(t *testing.T) {
+	// two tiny frames back to back; the first has stuffed FF 00 and a restart marker in its scan, and an APP1
+	// segment holding FF D9, which must not be taken for the end
+	a := []byte{0xFF, 0xD8, 0xFF, 0xE1, 0x00, 0x06, 0xFF, 0xD9, 0x01, 0x02, 0xFF, 0xDA, 0x00, 0x02, 0x11, 0xFF, 0x00, 0x22, 0xFF, 0xD0, 0x33, 0xFF, 0xD9}
+	b := []byte{0xFF, 0xD8, 0xFF, 0xDA, 0x00, 0x02, 0x44, 0xFF, 0xD9}
+	r := bufio.NewReader(bytes.NewReader(append(append([]byte{0x00, 0x13}, a...), b...)))
+	got, err := nextJPEG(r)
+	if err != nil || !bytes.Equal(got, a) {
+		t.Fatalf("first: %x %v", got, err)
+	}
+	if got, err := nextJPEG(r); err != nil || !bytes.Equal(got, b) {
+		t.Fatalf("second: %x %v", got, err)
+	}
+	if _, err := nextJPEG(r); err == nil {
+		t.Fatal("the stream has ended")
 	}
 }

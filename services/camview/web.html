@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera</title>
+<style>
+  :root { --bg: #f4f3f0; --surface: #fff; --line: #e4e2dc; --ink: #201f1a; --muted: #74736a; --accent: #c7d2ac; --bad: #b5533c;
+          --mono: ui-monospace, 'SF Mono', Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141411; --surface: #1c1b17; --line: #2d2c26; --ink: #eceae2; --muted: #9a998f; --accent: #8fa06a; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; min-height: 100vh;
+         display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 1rem; padding: 0.9rem 1.2rem; flex-wrap: wrap; }
+  h1 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+  .live { display: inline-flex; align-items: center; gap: 0.45rem; font: 0.72rem var(--mono); text-transform: uppercase; letter-spacing: 0.06em;
+          color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .on .dot { background: var(--bad); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  .stats { margin-left: auto; display: flex; gap: 1rem; font: 0.75rem var(--mono); color: var(--muted); }
+  .stats b { color: var(--ink); font-weight: 500; }
+  main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 1.2rem; min-height: 0; }
+  .frame { position: relative; background: #000; border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
+           width: min(100%, calc((100vh - 9rem) * 16 / 9)); aspect-ratio: 16 / 9; }
+  .frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .mirror img { transform: scaleX(-1); }
+  .note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2rem;
+          color: #eceae2; font-size: 0.95rem; background: rgba(0, 0, 0, 0.55); }
+  .note[hidden] { display: none; }
+  footer { display: flex; gap: 0.5rem; justify-content: center; padding: 0.9rem 1.2rem 1.2rem; flex-wrap: wrap; }
+  button, a.btn { font: inherit; font-size: 0.88rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+                  border-radius: 999px; padding: 0.45rem 1rem; cursor: pointer; text-decoration: none; }
+  button:hover, a.btn:hover { border-color: var(--muted); }
+  button[aria-pressed="true"] { background: var(--accent); border-color: transparent; color: #201f1a; }
+  @media (max-width: 600px) { .stats { margin-left: 0; width: 100%; } .frame { border-radius: 10px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Camera</h1>
+  <span class="live" id="live"><span class="dot"></span><span id="state">connecting</span></span>
+  <div class="stats"><span><b id="fps">0</b> fps</span><span><b id="viewers">0</b> watching</span><span id="size"></span></div>
+</header>
+<main>
+  <div class="frame" id="frame">
+    <img id="video" alt="Live camera picture">
+    <div class="note" id="note" hidden></div>
+  </div>
+</main>
+<footer>
+  <button id="pause" aria-pressed="false">Pause</button>
+  <button id="mirror" aria-pressed="false">Mirror</button>
+  <button id="full">Full screen</button>
+  <a class="btn" id="snap" href="snapshot.jpg" download>Save picture</a>
+</footer>
+<script>
+  // The picture is one long response of JPEGs (MJPEG); the browser shows each as it arrives.
+  const $ = (id) => document.getElementById(id)
+  const video = $('video'), note = $('note')
+  let paused = false, retry
+
+  function start() {
+    clearTimeout(retry)
+    video.src = 'stream?t=' + Date.now()
+  }
+  function stop() {
+    video.removeAttribute('src')
+  }
+  video.addEventListener('error', () => {
+    if (paused) return
+    retry = setTimeout(start, 2000) // the camera may be busy: try again
+  })
+
+  $('pause').onclick = (e) => {
+    paused = !paused
+    e.target.setAttribute('aria-pressed', paused)
+    e.target.textContent = paused ? 'Resume' : 'Pause'
+    paused ? stop() : start()
+  }
+  const mirrored = () => localStorage.getItem('camview.mirror') === '1'
+  function setMirror(on) {
+    $('frame').classList.toggle('mirror', on)
+    $('mirror').setAttribute('aria-pressed', on)
+    try { localStorage.setItem('camview.mirror', on ? '1' : '0') } catch {}
+  }
+  $('mirror').onclick = () => setMirror(!$('frame').classList.contains('mirror'))
+  $('full').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : $('frame').requestFullscreen())
+
+  async function poll() {
+    try {
+      const s = await (await fetch('status')).json()
+      $('fps').textContent = s.fps
+      $('viewers').textContent = s.viewers
+      $('size').textContent = s.size
+      const on = s.running && !paused
+      $('live').classList.toggle('on', on)
+      $('state').textContent = paused ? 'paused' : s.running ? 'live' : 'starting'
+      note.hidden = !(s.error && !s.running && !paused)
+      note.textContent = s.error ? 'The camera did not start: ' + s.error : ''
+    } catch {
+      $('state').textContent = 'camview is not running'
+      $('live').classList.remove('on')
+    }
+  }
+  try { setMirror(mirrored()) } catch {}
+  start()
+  poll()
+  setInterval(poll, 1000)
+</script>
+</body>
+</html>
