@@ -31,6 +31,7 @@ type camera struct {
 	size    string
 	fps     int
 	quality int
+	analyze string // a command that analyses frames (see analyse); "" = off
 
 	mu      sync.Mutex
 	cond    *sync.Cond
@@ -42,10 +43,18 @@ type camera struct {
 	rate    float64
 	idle    *time.Timer
 	stop    context.CancelFunc
+
+	// the analyser's newest result (a JSON line) and its numbers
+	result []byte
+	rseq   uint64
+	aon    bool
+	ams    float64
+	afps   float64
+	aerr   string
 }
 
-func newCamera(dev, size string, fps, quality int) *camera {
-	c := &camera{dev: dev, size: size, fps: fps, quality: quality}
+func newCamera(dev, size string, fps, quality int, analyze string) *camera {
+	c := &camera{dev: dev, size: size, fps: fps, quality: quality, analyze: analyze}
 	c.cond = sync.NewCond(&c.mu)
 	return c
 }
@@ -94,6 +103,9 @@ func (c *camera) read(ctx context.Context) {
 	}
 	if err == nil {
 		log.Printf("camera on (%s, %s, %d fps)", c.dev, c.size, c.fps)
+		if c.analyze != "" {
+			go c.analyse(ctx)
+		}
 		rd := bufio.NewReaderSize(out, 1<<20)
 		count, since := 0, time.Now()
 		for {
@@ -217,7 +229,7 @@ func scan(r *bufio.Reader, buf *bytes.Buffer) (byte, error) {
 	}
 }
 
-func serve(addr, dev, size string, fps, quality int) error {
+func serve(addr, dev, size string, fps, quality int, analyze string) error {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return err
@@ -225,7 +237,7 @@ func serve(addr, dev, size string, fps, quality int) error {
 	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
 		fmt.Fprintf(os.Stderr, "camview: %s is reachable from other machines: anyone who can reach it sees the camera\n", addr)
 	}
-	cam := newCamera(dev, size, fps, quality)
+	cam := newCamera(dev, size, fps, quality, analyze)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -268,6 +280,7 @@ func serve(addr, dev, size string, fps, quality int) error {
 			}
 		}
 	})
+	mux.HandleFunc("GET /analysis", cam.analysisEvents)
 	mux.HandleFunc("GET /snapshot.jpg", func(w http.ResponseWriter, _ *http.Request) {
 		cam.mu.Lock()
 		jpg := cam.frame
@@ -283,7 +296,8 @@ func serve(addr, dev, size string, fps, quality int) error {
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, _ *http.Request) {
 		cam.mu.Lock()
 		s := map[string]any{"device": cam.dev, "size": cam.size, "running": cam.running, "viewers": cam.viewers,
-			"fps": float64(int(cam.rate*10)) / 10, "bytes": len(cam.frame), "error": cam.err}
+			"fps": float64(int(cam.rate*10)) / 10, "bytes": len(cam.frame), "error": cam.err,
+			"analysis": map[string]any{"configured": cam.analyze != "", "on": cam.aon, "ms": cam.ams, "fps": float64(int(cam.afps*10)) / 10, "error": cam.aerr}}
 		cam.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(s)

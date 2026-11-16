@@ -26,7 +26,11 @@
   .frame { position: relative; background: #000; border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
            width: min(100%, calc((100vh - 9rem) * 16 / 9)); aspect-ratio: 16 / 9; }
   .frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
-  .mirror img { transform: scaleX(-1); }
+  .mirror img, .mirror canvas { transform: scaleX(-1); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .labels { position: absolute; left: 0.8rem; bottom: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.4rem; max-width: calc(100% - 1.6rem); }
+  .labels span { font: 0.78rem var(--mono); color: #201f1a; background: rgba(199, 210, 172, 0.92); border-radius: 999px; padding: 0.2rem 0.65rem; }
+  .labels span.hand { background: rgba(240, 192, 120, 0.92); }
   .note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 2rem;
           color: #eceae2; font-size: 0.95rem; background: rgba(0, 0, 0, 0.55); }
   .note[hidden] { display: none; }
@@ -42,17 +46,20 @@
 <header>
   <h1>Camera</h1>
   <span class="live" id="live"><span class="dot"></span><span id="state">connecting</span></span>
-  <div class="stats"><span><b id="fps">0</b> fps</span><span><b id="viewers">0</b> watching</span><span id="size"></span></div>
+  <div class="stats"><span><b id="fps">0</b> fps</span><span><b id="viewers">0</b> watching</span><span id="size"></span><span id="ana"></span></div>
 </header>
 <main>
   <div class="frame" id="frame">
     <img id="video" alt="Live camera picture">
+    <canvas id="overlay"></canvas>
+    <div class="labels" id="labels" aria-live="polite"></div>
     <div class="note" id="note" hidden></div>
   </div>
 </main>
 <footer>
   <button id="pause" aria-pressed="false">Pause</button>
   <button id="mirror" aria-pressed="false">Mirror</button>
+  <button id="overlayBtn" aria-pressed="true" hidden>Pose and gestures</button>
   <button id="full">Full screen</button>
   <a class="btn" id="snap" href="snapshot.jpg" download>Save picture</a>
 </footer>
@@ -100,12 +107,79 @@
       $('state').textContent = paused ? 'paused' : s.running ? 'live' : 'starting'
       note.hidden = !(s.error && !s.running && !paused)
       note.textContent = s.error ? 'The camera did not start: ' + s.error : ''
+      const a = s.analysis || {}
+      $('overlayBtn').hidden = !a.configured
+      $('ana').textContent = a.on ? `analysis ${a.fps} fps, ${Math.round(a.ms)} ms` : a.error ? 'analysis failed' : ''
+      $('ana').title = a.error || ''
     } catch {
       $('state').textContent = 'camview is not running'
       $('live').classList.remove('on')
     }
   }
+  // pose and gestures, drawn over the picture (coordinates from 0 to 1, as in the picture; the canvas mirrors with it)
+  const BODY = [[11, 12], [11, 23], [12, 24], [23, 24], [11, 13], [13, 15], [12, 14], [14, 16], [15, 17], [15, 19], [15, 21],
+    [17, 19], [16, 18], [16, 20], [16, 22], [18, 20], [23, 25], [25, 27], [27, 29], [27, 31], [29, 31], [24, 26], [26, 28],
+    [28, 30], [28, 32], [30, 32], [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], [9, 10]]
+  const HAND = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12], [9, 13],
+    [13, 14], [14, 15], [15, 16], [13, 17], [0, 17], [17, 18], [18, 19], [19, 20]]
+  const canvas = $('overlay'), ctx = canvas.getContext('2d')
+  let showOverlay = localStorage.getItem('camview.overlay') !== '0', lastResult = 0
+
+  function lines(pts, pairs, color, width, ok) {
+    const W = canvas.width, H = canvas.height
+    ctx.strokeStyle = color
+    ctx.lineWidth = width
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    for (const [a, b] of pairs) {
+      if (!ok(pts[a]) || !ok(pts[b])) continue
+      ctx.moveTo(pts[a][0] * W, pts[a][1] * H)
+      ctx.lineTo(pts[b][0] * W, pts[b][1] * H)
+    }
+    ctx.stroke()
+    ctx.fillStyle = color
+    for (const p of pts) {
+      if (!ok(p)) continue
+      ctx.beginPath()
+      ctx.arc(p[0] * W, p[1] * H, width * 1.2, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+
+  function draw(r) {
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = canvas.clientWidth * dpr
+    canvas.height = canvas.clientHeight * dpr
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    const labels = []
+    if (r && showOverlay) {
+      if (r.pose) lines(r.pose, BODY, '#c7d2ac', 3 * dpr, (p) => p[2] > 0.5)
+      for (const h of r.hands) lines(h.points, HAND, '#f0c078', 2 * dpr, () => true)
+      for (const p of r.poses) labels.push(`<span>${p}</span>`)
+      for (const h of r.hands) {
+        if (h.gesture) labels.push(`<span class="hand">${h.side} hand: ${h.gesture} ${Math.round(h.score * 100)}%</span>`)
+      }
+    }
+    $('labels').innerHTML = labels.join('')
+  }
+
+  const events = new EventSource('analysis')
+  events.onmessage = (e) => {
+    lastResult = Date.now()
+    try { draw(JSON.parse(e.data)) } catch {}
+  }
+  setInterval(() => { if (Date.now() - lastResult > 1500) draw(null) }, 500) // nothing new: clear the drawing
+
+  function setOverlay(on) {
+    showOverlay = on
+    $('overlayBtn').setAttribute('aria-pressed', on)
+    try { localStorage.setItem('camview.overlay', on ? '1' : '0') } catch {}
+    if (!on) draw(null)
+  }
+  $('overlayBtn').onclick = () => setOverlay(!showOverlay)
+
   try { setMirror(mirrored()) } catch {}
+  setOverlay(showOverlay)
   start()
   poll()
   setInterval(poll, 1000)

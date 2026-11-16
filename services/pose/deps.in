@@ -1,0 +1,6 @@
+numpy
+absl-py~=2.3
+flatbuffers~=25.9
+opencv-contrib-python-headless
+certifi
+matplotlib
