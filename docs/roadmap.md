@@ -31,6 +31,25 @@ The platform services (Postgres, Qdrant, Neo4j, SearXNG, llm) came from it and s
 removed from the cluster on 2026-11-04; Athena (docs/repos.md) replaces them. Strata and Stable Diffusion stay as GPU
 consumers. The migration notes and scripts are in docs/archive and scripts/archive.
 
+## Athena: to do (noted 2026-11-16)
+
+- Mail. notify is a dry run (no SMTP settings): nothing has been sent yet. Plan: a separate Gmail account just for
+  Athena as the sender (a Gmail app password opens the whole mailbox, so a leak exposes only that empty account),
+  2-step verification on, an app password, then set SMTP_HOST=smtp.gmail.com, SMTP_USER, SMTP_PASS, SMTP_FROM in
+  apps/athena/secret.sops.yaml (read them with `read -rsp` and `sops set`, so the password never shows) and
+  `kubectl -n athena delete pod -l app=notify`. RECIPIENTS stays. The fix that makes the tool say "NOT SENT" in a dry
+  run is in athena's code, not released yet.
+- Echo cancellation for live mode. Now athena-live drops its own voice by timing and words (and only "Athena" or
+  "stopp" interrupt it). Plan: PipeWire's WebRTC echo-cancel module (dotfiles), athena-live and athena-speaker playing
+  to its sink and athena-live listening to its source; measure how much of the JBL is left on the microphone (Bluetooth
+  delay 150-300 ms); then let any speech interrupt.
+- Realistic Norwegian speech: Chatterbox on the GPU. Measured on the CPU (2026-11-16): 3 to 5 times slower than real
+  time, too slow. Chatterbox Multilingual (MIT) with its default voice sounded Swedish and added words; the Norwegian
+  fine-tune akhbar/chatterbox-tts-norwegian (at b75eb2e0, about 6000 h of Norwegian, free for personal use only) sounds
+  Norwegian and reads back almost word for word. On the GPU it needs about 2-3 GB next to the chat model: move about
+  5 more MoE layers to RAM (the chat model writes somewhat slower), or load it only for speech. NbAiLab's newer
+  Piper voices (nb-tts-piper-voices-2607-female/male-oslo) are private. English is Kokoro (done first).
+
 ## New thesislab
 
 Not a port. Needs a spec first: what it does, which platform services it
