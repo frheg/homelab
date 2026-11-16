@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # usage: athena-live [flags for athena-live]
 # Talk with Athena out loud on kratos: the owl in the terminal. Starts speech recognition (whisper.cpp with OpenAI
-# Whisper small, on the CPU) for as long as it runs, then ~/.local/bin/athena-live (from ~/athena:
-# scripts/clients ~/.local/bin) with Athena's address and sign-in from ~/.config/athena/client.env.
+# Whisper small, on the CPU) for as long as it runs, then ~/.local/lib/athena/athena-live (from ~/athena:
+# scripts/clients ~/.local/lib/athena) with Athena's address and sign-in from ~/.config/athena/client.env.
 # The camera comes from camview-web (http://127.0.0.1:8410). nix builds it with its model: nix profile add ~/homelab#athena-live
 set -euo pipefail
 
@@ -25,4 +25,4 @@ set -a
 # shellcheck disable=SC1091
 . "$HOME/.config/athena/client.env"
 set +a
-"$HOME/.local/bin/athena-live" -stt "http://127.0.0.1:$port" "$@"
+"$HOME/.local/lib/athena/athena-live" -stt "http://127.0.0.1:$port" "$@"
