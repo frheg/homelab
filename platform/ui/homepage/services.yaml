@@ -59,6 +59,9 @@
         description: Firing alerts and silences
         namespace: monitoring
         podSelector: app=alertmanager
+    - Camera:
+        href: http://kratos:8410/
+        description: The webcam on kratos, live (camview-web, tailnet only)
 - Monitoring:
     - Overview:
         href: /grafana/
