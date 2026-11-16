@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# usage: say [-v voice] [-r speed] [-l] [text...]
+# Speaks text through kratos's speaker (the JBL when it is paired) with Piper, on the CPU, offline.
+# With no text it asks for lines, one at a time; an empty line or Ctrl-D quits.
+#   -v  no         Norwegian, talesyntese (default for Norwegian text)
+#       en         English, cori (default for English text)
+#       nvcc:1-10  Norwegian, one of the ten nvcc speakers
+#       <file>     any voice in $VOICES, by file name without .onnx
+#   -r  speed, 1 is normal (0.5 to 2)
+#   -l  list the voices
+# Without -v the language is guessed from the text. nix builds it with its voices: nix profile add ~/homelab#say
+set -euo pipefail
+
+VOICES=${VOICES:-/srv/models/piper}
+SPEAKER=${SAY_SPEAKER:-JBL} # part of the Bluetooth name of the speaker to connect first
+voice="" speed=1
+
+while getopts "v:r:lh" o; do
+  case $o in
+    v) voice=$OPTARG ;;
+    r) speed=$OPTARG ;;
+    l) for f in "$VOICES"/*.onnx; do basename "$f" .onnx; done; exit 0 ;;
+    *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+# the Bluetooth speaker: connect it if it is paired but not connected (the audio service must run for that)
+wpctl status >/dev/null 2>&1 || true
+mac=$(bluetoothctl devices Paired 2>/dev/null | grep -i -- "$SPEAKER" | head -1 | cut -d' ' -f2 || true)
+if [ -n "$mac" ] && ! bluetoothctl info "$mac" | grep -q "Connected: yes"; then
+  bluetoothctl --timeout 10 connect "$mac" >/dev/null 2>&1 || echo "say: could not connect $SPEAKER; using the default output" >&2
+  sleep 2
+fi
+
+speak() {
+  local text=$1 v=$voice model speaker=""
+  if [ -z "$v" ]; then
+    # Norwegian when it has æ, ø, å or common Norwegian words
+    if printf '%s' "$text" | grep -qiE '[æøå]|\b(og|ikke|jeg|det|er|på|hei|hva|hvor|du|deg|takk|hvordan|god|kan|skal|vil)\b'; then v=no; else v=en; fi
+  fi
+  case $v in
+    no) model=no_NO-talesyntese-medium ;;
+    en) model=en_GB-cori-high ;;
+    nvcc:*) model=no_NO-nvcc-medium speaker=$(( ${v#nvcc:} - 1 )) ;;
+    *) model=$v ;;
+  esac
+  if [ ! -f "$VOICES/$model.onnx" ]; then
+    echo "say: no voice $model in $VOICES (say -l lists them)" >&2
+    return 1
+  fi
+  local wav
+  wav=$(mktemp --suffix=.wav)
+  # piper wants the length of each sound, the inverse of speed
+  local scale
+  scale=$(awk -v s="$speed" 'BEGIN { if (s < 0.5) s = 0.5; if (s > 2) s = 2; printf "%.3f", 1 / s }')
+  local args=(-m "$VOICES/$model.onnx" --length-scale "$scale" -f "$wav")
+  [ -n "$speaker" ] && args+=(-s "$speaker")
+  printf '%s' "$text" | piper "${args[@]}" 2>/dev/null
+  pw-play "$wav"
+  rm -f "$wav"
+}
+
+if [ $# -gt 0 ]; then
+  speak "$*"
+else
+  while IFS= read -r -p "say> " line && [ -n "$line" ]; do
+    speak "$line" || true
+  done
+fi
