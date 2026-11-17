@@ -14,6 +14,8 @@ k3s starts at boot. Workloads start by themselves only for the GPU default (llm)
     http://kratos/headlamp/      # needs the trailing slash, then a token
     http://kratos/panel/         # buttons: reserve the GPU, switch it, start and stop profiles
     http://kratos/grafana/       # dashboards (docs/monitoring.md)
+    https://kratos.tail2124d4.ts.net:8443/          # the same pages over https (phones; Athena's live mode needs it)
+    https://kratos.tail2124d4.ts.net:8443/athena/   # Athena
 
 Tokens (read-only, or use headlamp-admin-token to change things):
 

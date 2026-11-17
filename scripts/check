@@ -16,7 +16,7 @@ out=$(vmalert -rule='platform/monitoring/rules/*.yaml' -dryRun 2>&1) || { echo "
 amtool check-config platform/monitoring/alertmanager.yaml >/dev/null
 echo "== go"
 for d in services/*/; do
-  [ -f "$d/go.mod" ] || continue # services/pose is Python
+  [ -f "$d/go.mod" ] || continue # not a Go module
   (cd "$d" && test -z "$(gofmt -l .)" && go vet ./... && go test -race ./...)
 done
 echo "== secrets";    gitleaks detect --no-banner --redact

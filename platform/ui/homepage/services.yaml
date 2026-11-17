@@ -4,7 +4,7 @@
 # llm-confidential has no UI link on purpose: it serves confidential prompts.
 - Athena:
     - Athena:
-        href: /athena/
+        href: https://kratos.tail2124d4.ts.net:8443/athena/ # https: live mode needs the microphone, which browsers allow only on https
         description: Personal assistant. Chat, approvals, memory, jobs
         namespace: athena
         podSelector: app=core

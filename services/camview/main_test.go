@@ -3,6 +3,9 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -55,5 +58,26 @@ func TestNextJPEG(t *testing.T) {
 	}
 	if _, err := nextJPEG(r); err == nil {
 		t.Fatal("the stream has ended")
+	}
+}
+
+func TestRemoteAnalyser(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if u, p, _ := r.BasicAuth(); u != "me" || p != "pw" {
+			http.Error(w, `{"error":"sign in"}`, 401)
+			return
+		}
+		_, _ = w.Write([]byte(`{"pose":null,"poses":[],"hands":[],"ms":30}`))
+	}))
+	defer srv.Close()
+	t.Setenv("ATHENA_USER", "me")
+	t.Setenv("ATHENA_PASSWORD", "pw")
+	line, err := newRemote(srv.URL).analyse(context.Background(), []byte("\xff\xd8\xff"))
+	if err != nil || !strings.HasSuffix(string(line), "\"ms\":30}\n") {
+		t.Fatalf("%q %v", line, err)
+	}
+	t.Setenv("ATHENA_PASSWORD", "wrong")
+	if _, err := newRemote(srv.URL).analyse(context.Background(), []byte("x")); err == nil || !strings.Contains(err.Error(), "401") {
+		t.Fatalf("want a 401 error, got %v", err)
 	}
 }

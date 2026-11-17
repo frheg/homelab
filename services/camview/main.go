@@ -1,7 +1,7 @@
 // camview shows a webcam in the terminal as ASCII art, live, or on a web page.
 //
 //	camview [-d /dev/video0] [-mono] [-ramp detailed|simple|blocks] [-invert] [-no-mirror] [-fps 15]
-//	camview -web [-addr 127.0.0.1:8410] [-size 1280x720] [-quality 5] [-fps 15] [-analyze command]
+//	camview -web [-addr 127.0.0.1:8410] [-size 1280x720] [-quality 5] [-fps 15] [-analyze URL or command]
 //
 // With -web it serves the live picture (MJPEG) on a page, only on this machine by default. The camera is opened when
 // someone watches and freed 5 s after the last viewer leaves.
@@ -97,7 +97,7 @@ func main() {
 	addr := flag.String("addr", "127.0.0.1:8410", "with -web: where to listen")
 	size := flag.String("size", "1280x720", "with -web: the camera size to read")
 	quality := flag.Int("quality", 5, "with -web: JPEG quality, 2 (best) to 31")
-	analyze := flag.String("analyze", "", "with -web: a command that finds pose, hands and gestures in the frames (services/pose)")
+	analyze := flag.String("analyze", "", "with -web: what finds pose, hands and gestures in the frames: Athena's camera URL (.../api/camera; signs in with ATHENA_USER and ATHENA_PASSWORD, or ATHENA_TOKEN), or a command (a 4-byte length and a JPEG in, a JSON line out)")
 	flag.Parse()
 	if *web {
 		if err := serve(*addr, *dev, *size, *fps, *quality, *analyze); err != nil {

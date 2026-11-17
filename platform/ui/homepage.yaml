@@ -27,7 +27,7 @@ spec:
           image: ghcr.io/gethomepage/homepage@sha256:19c5c09184458a41b7b5915e71463a39f36cd33540f41bdbed008791b8182d5f # v2.7.0
           ports: [{ containerPort: 3000 }]
           env:
-            - { name: HOMEPAGE_ALLOWED_HOSTS, value: "kratos" }
+            - { name: HOMEPAGE_ALLOWED_HOSTS, value: "kratos,kratos.tail2124d4.ts.net:8443" } # also over https (tailscale serve on kratos)
           resources:
             requests: { cpu: 25m, memory: 96Mi }
             limits: { memory: 384Mi }
