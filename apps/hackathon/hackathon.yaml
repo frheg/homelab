@@ -1,6 +1,7 @@
 # Hackathon (FORCE VibeCode, Stavanger, 2026-11-19..20): a place to host the product while it is built.
-# The runtime image (services/hackathon) runs /srv/hackathon/app/run.sh straight from kratos's disk, so a saved file
-# is live without a new image. Code and data live in /srv/hackathon (app/, data/), not confidential: any LLM may read it.
+# The runtime image (services/hackathon) runs app/run.sh from the repo ~/Documents/hackathon-force on kratos's disk,
+# mounted at the same path, so a saved file is live without a new image. Datasets are in its data/ folder. Not
+# confidential: any LLM may read it. Caches and the pod's own venv are in /srv/hackathon, outside the repo.
 #   http://kratos/hackathon/   https://kratos.<tailnet>.ts.net:8443/hackathon/   (dashboard sign-in, tailnet only)
 # On demand: profile hackathon (panel, or profctl up/down hackathon). Out: DNS, llm and llm-cpu (not llm-confidential),
 # Postgres (database hackathon), Qdrant, SearXNG and the internet; no other cluster addresses.
@@ -22,7 +23,7 @@ metadata:
   namespace: hackathon
 spec:
   # no replicas: profctl owns it (starts at 1 on the first apply; stop it with profctl down hackathon)
-  strategy: { type: Recreate } # one run.sh at a time on the shared folder
+  strategy: { type: Recreate } # one run.sh at a time on the repo
   selector: { matchLabels: { app: hackathon } }
   template:
     metadata:
@@ -37,11 +38,12 @@ spec:
         runAsGroup: 100
       containers:
         - name: app
-          image: kratos:5000/hackathon@sha256:04b5421bb533483c56fad21c22f141e3ce09bb66ed1b0d5265f3ac693bf0b23f # 0.1.0
+          image: kratos:5000/hackathon@sha256:fac98c953999202fc80247fe9297ae7479d3678387d1ecd967e07b9e8458ef88 # 0.1.1
           env:
             - { name: PORT, value: "8000" }
             - { name: ROOT_PATH, value: /hackathon }
-            - { name: DATA_DIR, value: /srv/hackathon/data }
+            - { name: APP_DIR, value: /home/v1s/Documents/hackathon-force/app }
+            - { name: DATA_DIR, value: /home/v1s/Documents/hackathon-force/data }
             - { name: LLM_URL, value: "http://llm.llm/v1" }
             - { name: LLM_MODEL, value: qwen3.6-35b }
             - { name: OPENAI_BASE_URL, value: "http://llm.llm/v1" } # for OpenAI client libraries
@@ -51,7 +53,7 @@ spec:
             - { name: QDRANT_URL, value: "http://qdrant.qdrant:6333" }
             - { name: SEARXNG_URL, value: "http://searxng.searxng" }
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: hackathon, key: DATABASE_URL } } }
-            # caches and the pod's own venv on the shared folder: kept across restarts, apart from the terminal's .venv
+            # caches and the pod's own venv outside the repo: kept across restarts, apart from the terminal's .venv
             - { name: HOME, value: /srv/hackathon/.home }
             - { name: UV_CACHE_DIR, value: /srv/hackathon/.cache/uv }
             - { name: UV_PROJECT_ENVIRONMENT, value: /srv/hackathon/.venv-pod }
@@ -69,10 +71,13 @@ spec:
             readOnlyRootFilesystem: true
             capabilities: { drop: [ALL] }
           volumeMounts:
-            - { name: work, mountPath: /srv/hackathon }
+            - { name: repo, mountPath: /home/v1s/Documents/hackathon-force }
+            - { name: cache, mountPath: /srv/hackathon }
             - { name: tmp, mountPath: /tmp }
       volumes:
-        - name: work
+        - name: repo
+          hostPath: { path: /home/v1s/Documents/hackathon-force, type: Directory }
+        - name: cache
           hostPath: { path: /srv/hackathon, type: Directory }
         - name: tmp
           emptyDir: { sizeLimit: 1Gi }

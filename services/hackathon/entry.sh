@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs /srv/hackathon/app/run.sh, again after a few seconds when it stops (no pod restart backoff while you work).
+# Runs $APP_DIR/run.sh, again after a few seconds when it stops (no pod restart backoff while you work).
 # Until there is a run.sh, a placeholder page says what to do; it checks for run.sh every 10 s.
 app=${APP_DIR:-/srv/hackathon/app}
 mkdir -p "$HOME" 2>/dev/null

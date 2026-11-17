@@ -118,21 +118,20 @@ Each is reached by name once the project namespace has the access label:
 
 ## Hackathon app
 
-The pod in `apps/hackathon` runs `/srv/hackathon/app/run.sh` from kratos's disk, at `/hackathon/` (also
-https://kratos.tail2124d4.ts.net:8443/hackathon/). Code in the terminal; a saved file is live (the starter uses
-`uvicorn --reload`). `run.sh` serves on `$PORT` (8000), and requests keep the `/hackathon` prefix (`$ROOT_PATH`), so use
-relative URLs in the page. Its env has LLM_URL, EMBED_URL, DATABASE_URL, QDRANT_URL and SEARXNG_URL; data goes in
-`/srv/hackathon/data`.
+The pod in `apps/hackathon` runs `app/run.sh` from the repo `~/Documents/hackathon-force` (mounted at the same path),
+at `/hackathon/` (also https://kratos.tail2124d4.ts.net:8443/hackathon/). Code in the terminal; a saved file is live
+(`uvicorn --reload`). `run.sh` serves on `$PORT` (8000), and requests keep the `/hackathon` prefix (`$ROOT_PATH`), so
+use relative URLs in the page. Its env has LLM_URL, EMBED_URL, DATABASE_URL, QDRANT_URL and SEARXNG_URL; datasets are in
+the repo's `data/` (`$DATA_DIR`, not in git).
 
     profctl up hackathon                                    start (or the panel)
     profctl down hackathon                                  stop
-    cp -r ~/homelab/services/hackathon/starter /srv/hackathon/app   a starter that checks every connection
     kubectl -n hackathon logs -f deploy/app                 what run.sh prints
     kubectl -n hackathon exec -it deploy/app -- bash        a shell in the pod (uv, npm, the same env)
     kubectl -n hackathon delete pod -l app=hackathon        restart it
 
-The pod has its own venv (`/srv/hackathon/.venv-pod`), so a `.venv` made in the terminal does not clash with it.
-Packages with a lock file: `uv sync` in run.sh, `npm ci` for Node.
+The pod's caches and its own venv are in `/srv/hackathon` (`.venv-pod`), so a `.venv` made in the terminal does not
+clash with it. Packages with a lock file: `uv sync` in run.sh, `npm ci` for Node.
 
 ## Wake on request
 
