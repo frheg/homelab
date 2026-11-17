@@ -20,7 +20,7 @@
 - Hackathon:
     - Hackathon app:
         href: /hackathon/
-        description: FORCE VibeCode prototype, served from /srv/hackathon/app. On demand: start profile hackathon in the Panel
+        description: "FORCE VibeCode prototype, served from /srv/hackathon/app. On demand: start profile hackathon in the Panel"
         namespace: hackathon
         podSelector: app=hackathon
     - Start or stop:

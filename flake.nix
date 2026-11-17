@@ -97,7 +97,7 @@
 
       # nix develop: everything scripts/check needs
       devShells.x86_64-linux.default = pkgs.mkShell {
-        packages = with pkgs; [ go kubectl kubeconform gitleaks skopeo victoriametrics prometheus-alertmanager ];
+        packages = with pkgs; [ go kubectl kubeconform gitleaks skopeo yq-go victoriametrics prometheus-alertmanager ];
       };
     };
 }

@@ -4,6 +4,8 @@ set -eu
 cd "$(dirname "$0")/.."
 r=$(mktemp); trap 'rm -f "$r"' EXIT
 
+# files that reach the cluster as plain text (Homepage config, policies) are not parsed by kustomize
+echo "== yaml";       yq -e "true" $(git ls-files "*.yaml" "*.yml") >/dev/null
 echo "== kustomize";  kubectl kustomize clusters/kratos >/dev/null; { kubectl kustomize platform; echo ---; kubectl kustomize apps; } >"$r"
 # Secrets skipped: SOPS adds a "sops:" block that Flux strips, repocheck checks them
 echo "== schemas";    kubeconform -strict -summary -ignore-missing-schemas -skip Secret \
