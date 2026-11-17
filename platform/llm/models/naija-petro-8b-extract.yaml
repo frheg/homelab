@@ -1,0 +1,9 @@
+# Naija-Petro 8B for bulk extraction (hazards from well histories, hidden NPT in drilling reports, DISKOS-QA runs):
+# 4 parallel slots of 16k with continuous batching for throughput, thinking off, and n-gram speculation, which pays
+# off when the answer copies text from the prompt (quotes, depths, names). Prompt cache reuse for shared prefixes.
+runtime: gpu
+params: 8 # total, in billions
+description: "Oil and gas: Naija-Petro 8B for bulk extraction (4 parallel, no thinking)"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/naija-petro-8b-Q8_0.gguf -ngl 999 --ctx-size 65536 --parallel 4 --cont-batching --ubatch-size 512 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --reasoning-budget 0 --cache-reuse 256 --spec-type ngram-mod

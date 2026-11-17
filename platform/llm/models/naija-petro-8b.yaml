@@ -1,0 +1,10 @@
+# Naija-Petro 8B: Qwen3-8B QLoRA on ~20k synthetic petroleum engineering Q&A, Q8_0. Fits the GPU whole.
+# Chat profile: Qwen3-0.6B (same tokenizer) drafts tokens for speculative decoding.
+# Profiles on the same file: -extract (bulk extraction), -long (long reports).
+# https://huggingface.co/Shinzmann/naija-petro-8b
+runtime: gpu
+params: 8 # total, in billions
+description: "Oil and gas: Naija-Petro 8B (Qwen3-8B petroleum fine-tune), chat, speculative decoding"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/naija-petro-8b-Q8_0.gguf -ngl 999 --ctx-size 32768 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --spec-draft-model /models/draft-qwen3-0.6b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1

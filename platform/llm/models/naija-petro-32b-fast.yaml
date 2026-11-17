@@ -1,0 +1,7 @@
+# Naija-Petro 32B, quick answers: thinking off and an 8k context, so fewer FFN layers go to the CPU (32 of 64).
+runtime: gpu
+params: 32 # total, in billions
+description: "Oil and gas: Naija-Petro 32B, fast (no thinking, 8k context)"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/naija-petro-32b-Q4_K_M.gguf -ngl 999 --override-tensor "blk\.([0-9]|[12][0-9]|3[01])\.ffn_.*=CPU" --ctx-size 8192 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --reasoning-budget 0 --spec-draft-model /models/draft-qwen3-0.6b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1

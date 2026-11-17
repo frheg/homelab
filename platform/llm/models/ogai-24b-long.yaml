@@ -1,0 +1,8 @@
+# OGAI-24B with its full 32k context for long documents: no draft (its VRAM goes to the KV cache), FFN of 19 layers
+# on the CPU.
+runtime: gpu
+params: 24 # total, in billions
+description: "Oil and gas: GainEnergy OGAI 24B, 32k context"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/ogai-24b-Q6_K.gguf -ngl 999 --override-tensor "blk\.([0-9]|1[0-8])\.ffn_.*=CPU" --ctx-size 32768 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1

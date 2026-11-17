@@ -1,0 +1,8 @@
+# Naija-Petro 8B for long documents: 64k context with YaRN (Qwen3 is trained to 32k), one slot. For whole well
+# reports or many passages at once.
+runtime: gpu
+params: 8 # total, in billions
+description: "Oil and gas: Naija-Petro 8B, 64k context for long reports"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/naija-petro-8b-Q8_0.gguf -ngl 999 --ctx-size 65536 --rope-scaling yarn --rope-scale 2 --yarn-orig-ctx 32768 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1

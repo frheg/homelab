@@ -7,9 +7,44 @@ models:
         cmd: /app/llama-server --port 9999 -m /models/laguna-xs-2.1-Q4_K_M.gguf -ngl 999 --n-cpu-moe 12 --ctx-size 32768 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0
         proxy: http://127.0.0.1:9999
         ttl: 600
+    naija-petro-8b:
+        description: 'Oil and gas: Naija-Petro 8B (Qwen3-8B petroleum fine-tune), chat, speculative decoding'
+        cmd: /app/llama-server --port 9999 -m /models/naija-petro-8b-Q8_0.gguf -ngl 999 --ctx-size 32768 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --spec-draft-model /models/draft-qwen3-0.6b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1
+        proxy: http://127.0.0.1:9999
+        ttl: 600
+    naija-petro-8b-extract:
+        description: 'Oil and gas: Naija-Petro 8B for bulk extraction (4 parallel, no thinking)'
+        cmd: /app/llama-server --port 9999 -m /models/naija-petro-8b-Q8_0.gguf -ngl 999 --ctx-size 65536 --parallel 4 --cont-batching --ubatch-size 512 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --reasoning-budget 0 --cache-reuse 256 --spec-type ngram-mod
+        proxy: http://127.0.0.1:9999
+        ttl: 600
+    naija-petro-8b-long:
+        description: 'Oil and gas: Naija-Petro 8B, 64k context for long reports'
+        cmd: /app/llama-server --port 9999 -m /models/naija-petro-8b-Q8_0.gguf -ngl 999 --ctx-size 65536 --rope-scaling yarn --rope-scale 2 --yarn-orig-ctx 32768 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1
+        proxy: http://127.0.0.1:9999
+        ttl: 600
+    naija-petro-32b:
+        description: 'Oil and gas: Naija-Petro 32B (Qwen3-32B petroleum fine-tune), quality, speculative decoding'
+        cmd: /app/llama-server --port 9999 -m /models/naija-petro-32b-Q4_K_M.gguf -ngl 999 --override-tensor "blk\.([0-9]|[12][0-9]|3[0-5])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --spec-draft-model /models/draft-qwen3-0.6b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1
+        proxy: http://127.0.0.1:9999
+        ttl: 600
+    naija-petro-32b-fast:
+        description: 'Oil and gas: Naija-Petro 32B, fast (no thinking, 8k context)'
+        cmd: /app/llama-server --port 9999 -m /models/naija-petro-32b-Q4_K_M.gguf -ngl 999 --override-tensor "blk\.([0-9]|[12][0-9]|3[01])\.ffn_.*=CPU" --ctx-size 8192 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --reasoning-budget 0 --spec-draft-model /models/draft-qwen3-0.6b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1
+        proxy: http://127.0.0.1:9999
+        ttl: 600
     nemotron-3.5-lightning:
         description: Long-context hybrid Mamba2/Attention/MoE, 30B/3B active
         cmd: /app/llama-server --port 9999 -m /models/nemotron-3.5-lightning-30b-a3b-Q4_K_M.gguf -ngl 999 --n-cpu-moe 24 --ctx-size 131072 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0
+        proxy: http://127.0.0.1:9999
+        ttl: 600
+    ogai-24b:
+        description: 'Oil and gas: GainEnergy OGAI 24B (Mistral Small fine-tune), speculative decoding'
+        cmd: /app/llama-server --port 9999 -m /models/ogai-24b-Q6_K.gguf -ngl 999 --override-tensor "blk\.([0-9]|1[0-5])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --spec-draft-model /models/draft-mistral-small-0.5b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1
+        proxy: http://127.0.0.1:9999
+        ttl: 600
+    ogai-24b-long:
+        description: 'Oil and gas: GainEnergy OGAI 24B, 32k context'
+        cmd: /app/llama-server --port 9999 -m /models/ogai-24b-Q6_K.gguf -ngl 999 --override-tensor "blk\.([0-9]|1[0-8])\.ffn_.*=CPU" --ctx-size 32768 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1
         proxy: http://127.0.0.1:9999
         ttl: 600
     qwen3-next-80b:
