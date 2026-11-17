@@ -33,7 +33,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: core
-          image: kratos:5000/athena-core@sha256:4e3fc41297868e8dd1854f972bc918ee8fee6e145b558ae097918c671fe51cee # 0.6.0
+          image: kratos:5000/athena-core@sha256:c348de3ff1b8ba315da4620fb7a18cecea4337c57cbe627deb6ba30e43302fc0 # 0.6.1
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: DATABASE_URL } } }
             - { name: LLM_URL, value: "http://llm.llm/v1" }
@@ -85,7 +85,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 101, runAsGroup: 101 }
       containers:
         - name: ui
-          image: kratos:5000/athena-ui@sha256:7e1cc31d60ad561a2590247624be917465b3672579b59276a94eee2f4c6f1065 # 0.6.0
+          image: kratos:5000/athena-ui@sha256:1a69a594d0cae1b7ed86bd9512a1a639c91bf9fcd35cca2c4371d4a5490d51f3 # 0.6.1
           ports: [{ containerPort: 8080 }]
           readinessProbe: { httpGet: { path: /health, port: 8080 } }
           resources:
@@ -113,7 +113,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-web
-          image: kratos:5000/athena-mcp-web@sha256:aaed0d5fc988b2cb34564601495a435ab58e72e0a1cfd8b763613c17fcb160ff # 0.6.0
+          image: kratos:5000/athena-mcp-web@sha256:b379aa3f24b24198078d6d661aeecfc22a4f05b9ce98a2839c4b526e8bd73d8e # 0.6.1
           env:
             - { name: SEARXNG_URL, value: "http://searxng.searxng" }
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_WEB } } }
@@ -137,7 +137,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-sources
-          image: kratos:5000/athena-mcp-sources@sha256:27d7ff81384881a04cc4487c218c0180d5bbda4aa894fff4cc7d09e9db6d9a89 # 0.6.0
+          image: kratos:5000/athena-mcp-sources@sha256:e0fb960a1e64d1dce468e6df44a504f68a986ba0db86cf2c41c9a7727b2f2f09 # 0.6.1
           env:
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_SOURCES } } }
             - { name: GITHUB_TOKEN, valueFrom: { secretKeyRef: { name: athena, key: GITHUB_TOKEN, optional: true } } }
@@ -161,7 +161,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-everyday
-          image: kratos:5000/athena-mcp-everyday@sha256:f30a854dcfbb2c34bd345a3daa4c87fa64cf5c172eb15c7039617498a702ad32 # 0.6.0
+          image: kratos:5000/athena-mcp-everyday@sha256:7933d519284901d14298108927d07268f2f124d3be77a97cf7cdaa6910087499 # 0.6.1
           env:
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_EVERYDAY } } }
             - { name: ENTUR_CLIENT_NAME, value: athena-personal }
@@ -185,7 +185,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-notes
-          image: kratos:5000/athena-mcp-notes@sha256:d5486f44753ed2e1ed8da65295ee57f2f032c3bc52657576eddef97e45843a1d # 0.6.0
+          image: kratos:5000/athena-mcp-notes@sha256:77d7311bc1f5c277846d316df2e3352d0b01abe2518efe519a19833cdaaf81e8 # 0.6.1
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: NOTES_DATABASE_URL } } }
             - { name: TIME_ZONE, value: Europe/Oslo }
@@ -210,7 +210,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: memory
-          image: kratos:5000/athena-memory@sha256:37d678cb85eeb4556b09d663299c69a3620065598813c5ddfdff49af2751a974 # 0.6.0
+          image: kratos:5000/athena-memory@sha256:c127695b59209e18abd939dd64fe13d9d886aa6b402bc6508f07c1358350a3e0 # 0.6.1
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: MEMORY_DATABASE_URL } } }
             - { name: QDRANT_URL, value: "http://qdrant.qdrant:6333" }
@@ -239,7 +239,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: notify
-          image: kratos:5000/athena-notify@sha256:52749cefa4ffb71ff825437aac0ffb722ad24324b8b6db4cf8f1d6aa066d0710 # 0.6.0
+          image: kratos:5000/athena-notify@sha256:747e4fdde09e8a7e10b7cde8de43bc67d3e3e5eb50797b15da4e2c866fd088b1 # 0.6.1
           env:
             - { name: RECIPIENTS, valueFrom: { secretKeyRef: { name: athena, key: RECIPIENTS } } }
             - { name: SMTP_HOST, valueFrom: { secretKeyRef: { name: athena, key: SMTP_HOST, optional: true } } }
@@ -269,7 +269,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: files
-          image: kratos:5000/athena-files@sha256:58c6d7b3b2efd5c823f4b2a30e6f59bd724447cb2e64ba77de1f18098cbda066 # 0.6.0
+          image: kratos:5000/athena-files@sha256:78c97c09bf14151f0a40893dff843c8c7c0f689de62819aceb042421dff4481f # 0.6.1
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: FILES_DATABASE_URL } } }
             - { name: MCP_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: MCP_TOKENS_FILES } } }
@@ -296,7 +296,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: speech
-          image: kratos:5000/athena-speech@sha256:a3b86df68b2947c287d9a599dc3bd8e98c4ac78f738ef04e9a6d266e7ee5ed8f # 0.6.0
+          image: kratos:5000/athena-speech@sha256:a3b86df68b2947c287d9a599dc3bd8e98c4ac78f738ef04e9a6d266e7ee5ed8f # 0.6.1
           env:
             - { name: TOKENS, valueFrom: { secretKeyRef: { name: athena, key: SPEECH_TOKENS } } }
             - { name: WHISPER_THREADS, value: "8" } # a few seconds of speech in about 1.5 s
@@ -327,7 +327,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: pose
-          image: kratos:5000/athena-pose@sha256:963a6f0621a0178041785fdc97b687492891e9d5b1ea9df201b0120ee8b2670e # 0.6.0
+          image: kratos:5000/athena-pose@sha256:963a6f0621a0178041785fdc97b687492891e9d5b1ea9df201b0120ee8b2670e # 0.6.1
           env:
             - { name: TOKENS, valueFrom: { secretKeyRef: { name: athena, key: POSE_TOKENS } } }
           ports: [{ containerPort: 8080 }]
@@ -429,7 +429,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-cluster-read
-          image: kratos:5000/athena-mcp-cluster-read@sha256:cb1041a71c9c2fb32c7ffa3af49be0dd05fd218bfee85c7203f446e742d279cf # 0.6.0
+          image: kratos:5000/athena-mcp-cluster-read@sha256:15c3e749bebc7f0efcabb4e47af6110ad35dd08d57d0fa98b7924fddc27909ee # 0.6.1
           env:
             - { name: NAMESPACES, value: "athena,llm,homelab,makeup-demo,searxng,monitoring,gpu-system,flux-system" }
             - { name: GPUCTL_URL, value: "http://gpuctl.gpu-system" }
@@ -478,7 +478,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532 }
       containers:
         - name: mcp-cluster-act
-          image: kratos:5000/athena-mcp-cluster-act@sha256:816005c850b377775390a9e8d42d87cb5498708aa16c4bcfdc3454b43f628849 # 0.6.0
+          image: kratos:5000/athena-mcp-cluster-act@sha256:17a8d2841ed74fcb8aad360191722a3e3f85755db444664acd5ed00598f929fe # 0.6.1
           env:
             - { name: ACTIONS_FILE, value: /etc/athena/cluster-actions.yaml }
             - { name: GPUCTL_URL, value: "http://gpuctl.gpu-system" }
