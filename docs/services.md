@@ -27,6 +27,7 @@ Pod total is about 26 Gi and 13.5 cores (`docs/monitoring.md`). Host: i5-14400F,
 | llm-confidential (llama-swap, models marked `confidential`, keeps no captures or logs) | interactive consumer | llm-confidential | gpuctl | yes | 24 Gi | measure | gpuproxy | confidential |
 | Makeup Search, synthetic (`/makeup-demo/`) | default | makeup-demo | llm | via llm | 2 Gi | measure | always on | public |
 | Makeup Search, real Odfjell data (`/makeup/`) | default | makeup | llm-confidential | via llm-confidential | 8 Gi | measure | always on | confidential |
+| Hackathon app (`/hackathon/`, FORCE VibeCode 2026-11-19..20): runs /srv/hackathon/app from disk | default | hackathon | llm, llm-cpu, Postgres, Qdrant, SearXNG, internet | via llm | 4 Gi | measure | profile hackathon | internal |
 | Strata | interactive consumer, hard preempt | homelab | gpuctl | yes | 22 Gi | 0 | gpuproxy, 25 min start | internal |
 | Stable Diffusion | interactive consumer, hard preempt | homelab | gpuctl | yes | 24 Gi | 0 | gpuproxy | internal |
 

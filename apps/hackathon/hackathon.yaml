@@ -1,0 +1,133 @@
+# Hackathon (FORCE VibeCode, Stavanger, 2026-11-19..20): a place to host the product while it is built.
+# The runtime image (services/hackathon) runs /srv/hackathon/app/run.sh straight from kratos's disk, so a saved file
+# is live without a new image. Code and data live in /srv/hackathon (app/, data/), not confidential: any LLM may read it.
+#   http://kratos/hackathon/   https://kratos.<tailnet>.ts.net:8443/hackathon/   (dashboard sign-in, tailnet only)
+# On demand: profile hackathon (panel, or profctl up/down hackathon). Out: DNS, llm and llm-cpu (not llm-confidential),
+# Postgres (database hackathon), Qdrant, SearXNG and the internet; no other cluster addresses.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hackathon
+  labels:
+    profile.kratos/hackathon: "true"
+    llm.kratos/access: "true"
+    postgres.kratos/access: "true"
+    qdrant.kratos/access: "true"
+    searxng.kratos/access: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: hackathon
+spec:
+  # no replicas: profctl owns it (starts at 1 on the first apply; stop it with profctl down hackathon)
+  strategy: { type: Recreate } # one run.sh at a time on the shared folder
+  selector: { matchLabels: { app: hackathon } }
+  template:
+    metadata:
+      labels: { app: hackathon }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 5
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # v1s: files written by the app stay editable in the terminal
+        runAsGroup: 100
+      containers:
+        - name: app
+          image: kratos:5000/hackathon@sha256:04b5421bb533483c56fad21c22f141e3ce09bb66ed1b0d5265f3ac693bf0b23f # 0.1.0
+          env:
+            - { name: PORT, value: "8000" }
+            - { name: ROOT_PATH, value: /hackathon }
+            - { name: DATA_DIR, value: /srv/hackathon/data }
+            - { name: LLM_URL, value: "http://llm.llm/v1" }
+            - { name: LLM_MODEL, value: qwen3.6-35b }
+            - { name: OPENAI_BASE_URL, value: "http://llm.llm/v1" } # for OpenAI client libraries
+            - { name: OPENAI_API_KEY, value: none } # the gateway takes no key; the libraries want one set
+            - { name: EMBED_URL, value: "http://llm-cpu.llm/v1" }
+            - { name: EMBED_MODEL, value: bge-m3 }
+            - { name: QDRANT_URL, value: "http://qdrant.qdrant:6333" }
+            - { name: SEARXNG_URL, value: "http://searxng.searxng" }
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: hackathon, key: DATABASE_URL } } }
+            # caches and the pod's own venv on the shared folder: kept across restarts, apart from the terminal's .venv
+            - { name: HOME, value: /srv/hackathon/.home }
+            - { name: UV_CACHE_DIR, value: /srv/hackathon/.cache/uv }
+            - { name: UV_PROJECT_ENVIRONMENT, value: /srv/hackathon/.venv-pod }
+            - { name: UV_PYTHON_DOWNLOADS, value: never }
+            - { name: npm_config_cache, value: /srv/hackathon/.cache/npm }
+          ports: [{ containerPort: 8000 }]
+          readinessProbe:
+            tcpSocket: { port: 8000 }
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { memory: 4Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: work, mountPath: /srv/hackathon }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: work
+          hostPath: { path: /srv/hackathon, type: Directory }
+        - name: tmp
+          emptyDir: { sizeLimit: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: app, namespace: hackathon }
+spec:
+  selector: { app: hackathon }
+  ports: [{ port: 80, targetPort: 8000 }]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: app, namespace: hackathon }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 8000 }]
+  egress:
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: kube-system } } }]
+      ports: [{ port: 53, protocol: UDP }, { port: 53, protocol: TCP }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: llm } } }]
+      ports: [{ port: 8080 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: postgres } } }]
+      ports: [{ port: 5432 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: qdrant } } }]
+      ports: [{ port: 6333 }, { port: 6334 }]
+    - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: searxng } } }]
+      ports: [{ port: 8080 }]
+    - to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, 169.254.0.0/16] } }]
+---
+# No stripPrefix: the app gets the full path (ROOT_PATH), as most frameworks expect behind a path (FastAPI root_path,
+# Vite base, Streamlit baseUrlPath). The slash redirect keeps relative URLs working from /hackathon.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata: { name: slash, namespace: hackathon }
+spec:
+  redirectRegex:
+    regex: ^(https?://[^/]+/hackathon)$
+    replacement: ${1}/
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app
+  namespace: hackathon
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: platform-ui-basic-auth@kubernetescrd,hackathon-slash@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /hackathon
+            pathType: Prefix
+            backend: { service: { name: app, port: { number: 80 } } }

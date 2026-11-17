@@ -17,6 +17,15 @@
               query: sum(kube_pod_status_ready{namespace="athena",condition="true"}) or vector(0)
             - label: Restarts, 1 h
               query: sum(kube_pod_container_status_restarts_total{namespace="athena"} - (kube_pod_container_status_restarts_total{namespace="athena"} offset 1h)) or vector(0)
+- Hackathon:
+    - Hackathon app:
+        href: /hackathon/
+        description: FORCE VibeCode prototype, served from /srv/hackathon/app. On demand: start profile hackathon in the Panel
+        namespace: hackathon
+        podSelector: app=hackathon
+    - Start or stop:
+        href: /panel/
+        description: Panel, profile hackathon (or profctl up hackathon / profctl down hackathon)
 - Services:
     - llama.cpp:
         href: http://kratos:8401/ui/
