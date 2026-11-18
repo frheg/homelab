@@ -1,0 +1,9 @@
+# OGAI-24B requantized to IQ4_XS (from the published Q6_K, llama-quantize --allow-requantize, 2026-11-18), about 12.7 GB:
+# the whole model and a 16k q8 KV cache fit in 16 GB, so no layers on the CPU. Q6_K split across CPU and GPU measured
+# 5.7 tok/s; this trades a little quality (a 6-bit file requantized) for speed.
+runtime: gpu
+params: 24 # total, in billions
+description: "Oil and gas: GainEnergy OGAI 24B, IQ4_XS, all on the GPU (fast)"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/ogai-24b-IQ4_XS.gguf -ngl 999 --ctx-size 16384 --ubatch-size 512 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1

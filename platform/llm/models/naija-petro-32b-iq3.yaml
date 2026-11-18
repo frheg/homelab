@@ -1,0 +1,10 @@
+# Naija-Petro 32B quantized to IQ3_XXS (from the published Q8_0, with bartowski's Qwen3-32B importance matrix: the
+# fine-tune is a QLoRA on Qwen3-32B, so the base model's activation statistics stand in; 2026-11-18), about 13 GB.
+# Fits the GPU whole with an 8k context; the Q4_K_M profile split across CPU and GPU measured 6.6 tok/s.
+# 3-bit costs some quality: compare on DISKOS-QA before relying on it.
+runtime: gpu
+params: 32 # total, in billions
+description: "Oil and gas: Naija-Petro 32B, IQ3_XXS, all on the GPU (fast)"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/naija-petro-32b-IQ3_XXS.gguf -ngl 999 --ctx-size 8192 --ubatch-size 512 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1
