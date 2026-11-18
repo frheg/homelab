@@ -1,10 +1,11 @@
 # Naija-Petro 32B: Qwen3-32B QLoRA on the same petroleum data as the 8B, Q4_K_M. Dense, 64 layers: FFN of the first
-# 36 layers on the CPU, the rest and the KV cache on the GPU. Qwen3-0.6B drafts tokens (dense models gain the most).
+# 34 layers on the CPU, the rest and the KV cache on the GPU. Measured 2026-11-18: 6.6 tok/s with a draft model,
+# no faster than without, so no draft: its VRAM goes to two more layers on the GPU.
 # Profile -fast on the same file: no thinking, short context, for quick answers.
 # https://huggingface.co/Shinzmann/naija-petro
 runtime: gpu
 params: 32 # total, in billions
-description: "Oil and gas: Naija-Petro 32B (Qwen3-32B petroleum fine-tune), quality, speculative decoding"
+description: "Oil and gas: Naija-Petro 32B (Qwen3-32B petroleum fine-tune), quality"
 ttl: 600
 cmd: >-
-  /app/llama-server --port 9999 -m /models/naija-petro-32b-Q4_K_M.gguf -ngl 999 --override-tensor "blk\.([0-9]|[12][0-9]|3[0-5])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --spec-draft-model /models/draft-qwen3-0.6b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1
+  /app/llama-server --port 9999 -m /models/naija-petro-32b-Q4_K_M.gguf -ngl 999 --override-tensor "blk\.([0-9]|[12][0-9]|3[0-3])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1

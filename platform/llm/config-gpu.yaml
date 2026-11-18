@@ -23,8 +23,8 @@ models:
         proxy: http://127.0.0.1:9999
         ttl: 600
     naija-petro-32b:
-        description: 'Oil and gas: Naija-Petro 32B (Qwen3-32B petroleum fine-tune), quality, speculative decoding'
-        cmd: /app/llama-server --port 9999 -m /models/naija-petro-32b-Q4_K_M.gguf -ngl 999 --override-tensor "blk\.([0-9]|[12][0-9]|3[0-5])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --spec-draft-model /models/draft-qwen3-0.6b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1
+        description: 'Oil and gas: Naija-Petro 32B (Qwen3-32B petroleum fine-tune), quality'
+        cmd: /app/llama-server --port 9999 -m /models/naija-petro-32b-Q4_K_M.gguf -ngl 999 --override-tensor "blk\.([0-9]|[12][0-9]|3[0-3])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1
         proxy: http://127.0.0.1:9999
         ttl: 600
     naija-petro-32b-fast:
@@ -38,8 +38,8 @@ models:
         proxy: http://127.0.0.1:9999
         ttl: 600
     ogai-24b:
-        description: 'Oil and gas: GainEnergy OGAI 24B (Mistral Small fine-tune), speculative decoding'
-        cmd: /app/llama-server --port 9999 -m /models/ogai-24b-Q6_K.gguf -ngl 999 --override-tensor "blk\.([0-9]|1[0-5])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --spec-draft-model /models/draft-mistral-small-0.5b-Q8_0.gguf --spec-type draft-simple --spec-draft-ngl 999 --spec-draft-n-max 8 --spec-draft-n-min 1
+        description: 'Oil and gas: GainEnergy OGAI 24B (Mistral Small fine-tune)'
+        cmd: /app/llama-server --port 9999 -m /models/ogai-24b-Q6_K.gguf -ngl 999 --override-tensor "blk\.([0-9]|1[0-4])\.ffn_.*=CPU" --ctx-size 16384 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1
         proxy: http://127.0.0.1:9999
         ttl: 600
     ogai-24b-long:
