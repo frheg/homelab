@@ -36,6 +36,7 @@ spec:
             - { name: PORT, value: "8460" }
             - { name: APP_DIR, value: /home/v1s/Documents/hackathon-force/subsurface-evidence }
             - { name: DATA_DIR, value: /home/v1s/Documents/hackathon-force/data }
+            - { name: SE_TARGETS, value: /srv/hackathon/se/targets } # saved targets: writable, the repo mount is read-only
             - { name: WORKER_URL, value: "http://worker:8080" }
             - { name: PYTHONDONTWRITEBYTECODE, value: "1" }
             - { name: HOME, value: /srv/hackathon/se/.home }
@@ -131,6 +132,7 @@ spec:
             - { name: PORT, value: "8462" }
             - { name: APP_DIR, value: /home/v1s/Documents/hackathon-force/subsurface-evidence }
             - { name: DATA_DIR, value: /home/v1s/Documents/hackathon-force/data }
+            - { name: SE_TARGETS, value: /srv/hackathon/se/targets } # saved targets: writable, the repo mount is read-only
             - { name: PYTHONDONTWRITEBYTECODE, value: "1" }
             - { name: HOME, value: /srv/hackathon/se/.home }
             - { name: UV_CACHE_DIR, value: /srv/hackathon/se/.cache/uv }
