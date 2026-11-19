@@ -1,3 +1,4 @@
+| Subsurface Evidence (`/subsurface-evidence/`): UI, CPU API and a GPU worker for fine maps; runs ~/Documents/hackathon-force/subsurface-evidence from disk | default (worker: interactive consumer) | subsurface-evidence | gpuctl (worker, via gpuproxy), internet (worker first start) | yes (worker) | 3 Gi backend, 8 Gi worker | 0 until a fine map is asked, then ~0.5 GB | profile subsurface-evidence, gpuproxy | internal |
 # Services
 
 Status: draft. One row per service: what it is, how it is scheduled, what it needs.

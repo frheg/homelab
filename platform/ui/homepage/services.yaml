@@ -23,6 +23,11 @@
         description: "FORCE VibeCode prototype, three sketches, served from ~/Documents/hackathon-force. On demand: start profile hackathon in the Panel"
         namespace: hackathon
         podSelector: app=hackathon
+    - Subsurface Evidence:
+        href: /subsurface-evidence/
+        description: "Evidence engine for green clay on the NCS, served from ~/Documents/hackathon-force/subsurface-evidence. Fine maps wake a GPU worker. On demand: profile subsurface-evidence"
+        namespace: subsurface-evidence
+        podSelector: app=ui
     - Start or stop:
         href: /panel/
         description: Panel, profile hackathon (or profctl up hackathon / profctl down hackathon)
