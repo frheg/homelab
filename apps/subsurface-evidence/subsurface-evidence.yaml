@@ -48,8 +48,8 @@ spec:
             httpGet: { path: /api/health, port: 8460 }
             periodSeconds: 5
           resources:
-            requests: { cpu: 200m, memory: 512Mi }
-            limits: { memory: 3Gi }
+            requests: { cpu: 200m, memory: 1Gi }
+            limits: { memory: 8Gi }  # 3 -> 8 GiB: the earth model, seismic block and enrich run in this process
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
           volumeMounts:
             - { name: repo, mountPath: /home/v1s/Documents/hackathon-force, readOnly: true }
