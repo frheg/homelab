@@ -1,0 +1,9 @@
+# Profile of inkling-2-mini (see that file) without the image projector: the 640 MiB go to context.
+# 96k, ubatch 32: 15254 MiB. Recall found at 78k tokens; 35 tok/s at 78k, prefill 230 tok/s there.
+runtime: gpu
+params: 26 # total, in billions
+confidential: true
+description: "Long context: inkling-2-mini text only, 96k context, all on the GPU"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/Inkling-2-Mini-UD-Q3_K_XL.gguf -ngl 999 --ctx-size 98304 --batch-size 2048 --ubatch-size 32 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --jinja --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0

@@ -7,7 +7,7 @@
 runtime: gpu
 params: 35 # total, in billions
 confidential: true # also served by llm-confidential (the Makeup Search assistant on real Odfjell data)
-description: "Default: general-purpose, agentic tool use, sees images, MTP speculative decode"
+description: "General-purpose (the default before inkling-2-mini), agentic tool use, sees images, MTP speculative decode"
 ttl: 600
 cmd: >-
   /app/llama-server --port 9999 -m /models/Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL.gguf --mmproj /models/Qwen3.6-35B-A3B-mmproj-F16.gguf -ngl 999 --n-cpu-moe 20 --ctx-size 65536 --batch-size 2048 --ubatch-size 1024 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1

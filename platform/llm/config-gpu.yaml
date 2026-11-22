@@ -2,6 +2,16 @@
 healthCheckTimeout: 300
 logRequests: true
 models:
+    inkling-2-mini:
+        description: 'Default: general-purpose, agentic tool use, sees images, 64k context, all on the GPU'
+        cmd: /app/llama-server --port 9999 -m /models/Inkling-2-Mini-UD-Q3_K_XL.gguf --mmproj /models/Inkling-2-Mini-mmproj-F16.gguf -ngl 999 --ctx-size 65536 --batch-size 2048 --ubatch-size 32 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --jinja --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
+        proxy: http://127.0.0.1:9999
+        ttl: 600
+    inkling-2-mini-long:
+        description: 'Long context: inkling-2-mini text only, 96k context, all on the GPU'
+        cmd: /app/llama-server --port 9999 -m /models/Inkling-2-Mini-UD-Q3_K_XL.gguf -ngl 999 --ctx-size 98304 --batch-size 2048 --ubatch-size 32 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --jinja --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0
+        proxy: http://127.0.0.1:9999
+        ttl: 600
     laguna-xs-2.1:
         description: 'EXPERIMENTAL: Poolside coding model, 33B/8B active'
         cmd: /app/llama-server --port 9999 -m /models/laguna-xs-2.1-Q4_K_M.gguf -ngl 999 --n-cpu-moe 12 --ctx-size 32768 --ubatch-size 256 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0
@@ -63,7 +73,7 @@ models:
         proxy: http://127.0.0.1:9999
         ttl: 600
     qwen3.6-35b:
-        description: 'Default: general-purpose, agentic tool use, sees images, MTP speculative decode'
+        description: General-purpose (the default before inkling-2-mini), agentic tool use, sees images, MTP speculative decode
         cmd: /app/llama-server --port 9999 -m /models/Qwen3.6-35B-A3B-MTP-UD-Q4_K_XL.gguf --mmproj /models/Qwen3.6-35B-A3B-mmproj-F16.gguf -ngl 999 --n-cpu-moe 20 --ctx-size 65536 --batch-size 2048 --ubatch-size 1024 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --spec-type draft-mtp --spec-draft-n-max 2 --parallel 1
         proxy: http://127.0.0.1:9999
         ttl: 600

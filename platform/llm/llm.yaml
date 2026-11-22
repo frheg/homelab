@@ -32,7 +32,7 @@ spec:
         runAsUser: 65534
       containers:
         - name: llama-swap
-          image: kratos:5000/llama-swap@sha256:0b60f4e4fe74cc22008b97026701dd6651f17370e9ee4084c1e906565ac348c4 # upstream :cuda of 2026-08-24, mirrored
+          image: kratos:5000/llama-swap@sha256:01d2c5008b3f56bb941637b684bc592ca893beb1c1958622951ae29662314959 # v275 on llama.cpp b12619, built here (services/llama-swap)
           args: ["-config", "/app/config.yaml", "-listen", ":8080"]
           env:
             - { name: HOME, value: /tmp }

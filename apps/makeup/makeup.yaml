@@ -44,7 +44,7 @@ spec:
             - { name: CONFIG_DIR, value: /app/config }
             - { name: ROOT_PATH, value: /makeup-demo }
             - { name: LLM_URL, value: "http://llm.llm/v1" }
-            - { name: LLM_MODEL, value: qwen3.6-35b }
+            - { name: LLM_MODEL, value: inkling-2-mini }
           ports: [{ containerPort: 8000 }]
           readinessProbe:
             httpGet: { path: /api/health, port: 8000 }
@@ -91,7 +91,7 @@ spec:
             - { name: CONFIG_DIR, value: /app/config }
             - { name: ROOT_PATH, value: /makeup }
             - { name: LLM_URL, value: "http://llm-confidential.llm-confidential/v1" }
-            - { name: LLM_MODEL, value: qwen3.6-35b }
+            - { name: LLM_MODEL, value: inkling-2-mini }
           ports: [{ containerPort: 8000 }]
           readinessProbe:
             httpGet: { path: /api/health, port: 8000 }

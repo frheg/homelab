@@ -45,7 +45,7 @@ spec:
             - { name: APP_DIR, value: /home/v1s/Documents/hackathon-force/app }
             - { name: DATA_DIR, value: /home/v1s/Documents/hackathon-force/data }
             - { name: LLM_URL, value: "http://llm.llm/v1" }
-            - { name: LLM_MODEL, value: qwen3.6-35b }
+            - { name: LLM_MODEL, value: inkling-2-mini }
             - { name: OPENAI_BASE_URL, value: "http://llm.llm/v1" } # for OpenAI client libraries
             - { name: OPENAI_API_KEY, value: none } # the gateway takes no key; the libraries want one set
             - { name: EMBED_URL, value: "http://llm-cpu.llm/v1" }

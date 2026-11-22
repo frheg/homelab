@@ -1,0 +1,18 @@
+# Inkling 2 Mini (Thinking Machines, Apache 2.0, 2026-11-20): looped MoE, 26B total, 3.4B active (5.4B with the three
+# passes through layers 6-17), sees images. Unsloth UD-Q3_K_XL from Mainline_Support at ae9327c5 (sha256 e2d03e8c...),
+# mmproj F16 (sha256 3bff75ff...). Needs llama.cpp b12619 or later (PR 32704), see services/llama-swap.
+# All on the GPU. Measured 2026-11-22 on the 5060 Ti: model 12685 MiB, global-attention KV 17 MiB per 1k tokens (q8_0,
+# 8 layers; the other 40 are sliding-window, 106 MiB fixed). The compute buffer grows with ubatch x context (attention
+# scores are not fused): ubatch 32 costs 6.5 MiB per 1k tokens, 64 costs 13, so ubatch 32 buys the context.
+# 64k, ubatch 32: 15222 MiB idle, 15458 MiB peak with an image. 51 tok/s short, 41 at 46k; prefill 290-400 tok/s.
+# Recall: a code planted at 40% depth found at 65k and 78k tokens. q4_0 KV halves the KV but generation at 90k drops
+# from 37 to 22 tok/s, so q8_0. Unsloth's DSpark drafter does not load on mainline (vocab 201024 vs 200058).
+# Sampling as the model card: temp 1.0, top-p 1.0, top-k 0, min-p 0. Thinking effort comes from the chat template
+# (reasoning_effort, default high); clients can send chat_template_kwargs.reasoning_effort.
+runtime: gpu
+params: 26 # total, in billions
+confidential: true # also served by llm-confidential (the Makeup Search assistant on real Odfjell data)
+description: "Default: general-purpose, agentic tool use, sees images, 64k context, all on the GPU"
+ttl: 600
+cmd: >-
+  /app/llama-server --port 9999 -m /models/Inkling-2-Mini-UD-Q3_K_XL.gguf --mmproj /models/Inkling-2-Mini-mmproj-F16.gguf -ngl 999 --ctx-size 65536 --batch-size 2048 --ubatch-size 32 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 --jinja --temp 1.0 --top-p 1.0 --top-k 0 --min-p 0.0

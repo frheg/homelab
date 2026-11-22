@@ -37,7 +37,7 @@ spec:
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: athena, key: DATABASE_URL } } }
             - { name: LLM_URL, value: "http://llm.llm/v1" }
-            - { name: LLM_MODEL, value: qwen3.6-35b }
+            - { name: LLM_MODEL, value: inkling-2-mini }
             - name: TOOL_SERVERS
               value: web=http://mcp-web/mcp,sources=http://mcp-sources/mcp,everyday=http://mcp-everyday/mcp,notes=http://mcp-notes/mcp,memory=http://memory/mcp,notify=http://notify/mcp,files=http://files/mcp,cluster=http://mcp-cluster-read/mcp,cluster_act=http://mcp-cluster-act/mcp
             - { name: TOOL_TOKENS, valueFrom: { secretKeyRef: { name: athena, key: TOOL_TOKENS } } }
@@ -45,7 +45,7 @@ spec:
             - { name: MEMORY_TOKEN, valueFrom: { secretKeyRef: { name: athena, key: TOKEN_MEMORY } } }
             - { name: FILES_URL, value: "http://files" }
             - { name: FILES_TOKEN, valueFrom: { secretKeyRef: { name: athena, key: TOKEN_FILES } } }
-            - { name: VISION_MODELS, value: qwen3.6-35b } # the models started with --mmproj (platform/llm/models)
+            - { name: VISION_MODELS, value: "inkling-2-mini,qwen3.6-35b" } # the models started with --mmproj (platform/llm/models)
             - { name: TTS_URL, value: "http://speech/v1" }
             - { name: TTS_TOKEN, valueFrom: { secretKeyRef: { name: athena, key: TOKEN_SPEECH } } }
             - { name: POSE_URL, value: "http://pose" }
