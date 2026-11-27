@@ -40,8 +40,8 @@ Pod total is about 26 Gi and 13.5 cores (`docs/monitoring.md`). Host: i5-14400F,
 | Athena embeddings (an embed server, for memory search by meaning) | default consumer | llm | gpuctl or CPU | decide | measure | gpuproxy | internal |
 | Wake proxy (generic scale-from-zero front for non-GPU backends) | infra | platform | profctl | - | ~64 Mi | always on | internal |
 | STT (Whisper-class) | default, kept warm | athena | gpuctl or CPU | decide | measure | warm | internal |
-| Thesis Lab: workers, egress proxy, GROBID, public-data Postgres (pgvector, job queue) | background | thesis-lab | embed, rerank, llm | yes, via llm | measure | profile, windows | public |
-| embed and rerank servers | default consumer | llm or thesis-lab | gpuctl | yes | measure | gpuproxy | public |
+| master-thesis Lab: workers, egress proxy, GROBID, public-data Postgres (pgvector, job queue) | background | master-thesis | embed, rerank, llm | yes, via llm | measure | profile, windows | public |
+| embed and rerank servers | default consumer | llm or master-thesis | gpuctl | yes | measure | gpuproxy | public |
 | Thesis Enclave: agent, chat, API | background | thesis-enclave | enclave Postgres, llm | yes, via llm | measure | profile, windows | confidential |
 | Enclave Postgres (separate instance) | default | thesis-enclave | - | - | measure | with the enclave | confidential |
 | Bench runner (Jobs created by a small controller, no docker.sock) | background, resumable | thesis-bench | gpuctl | yes | per job | Job | confidential |

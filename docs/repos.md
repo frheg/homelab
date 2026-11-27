@@ -10,10 +10,10 @@ How the code is split, where it lives, and how it gets into the cluster.
 |---|---|---|---|
 | homelab | `~/homelab` | `frheg/homelab` | the cluster: manifests, Go infra services, docs. Flux watches `main` |
 | athena | `~/athena` | `frheg/athena`, public | the chatbot, a general project anyone can run |
-| thesis-lab | `~/thesis-lab` | `frheg/thesis-lab`, private | Lab, Enclave and Bench, version 2 |
+| master-thesis | `~/master-thesis` | `frheg/master-thesis`, private | the thesis: text, harness (`src/`), Lab, Enclave and Bench, and the tasks, with the Makeup Search baseline in `tasks/ai-assisted-search-makeup-graphs/task-baseline` |
 | dotfiles_nix | `~/.config/dotfiles_nix` | `frheg/dotfiles_nix` | host config: k3s module, kubelet reservations, the `/srv` directories. A new data directory or a RAM change is made here, then `make kratos` |
 | HomeLab_Old | `~/Documents/HomeLab_Old` | `frheg/HomeLab_Old` | old HomeLab source, the origin of today's Python images. Archive |
-| masters-sandbox | `~/Documents/masters-sandbox` | `frheg/masters-sandbox` | old thesis lab (docker compose). Reference for thesis-lab |
+| masters-sandbox | GitHub only | `frheg/masters-sandbox` | old thesis lab and Makeup Search v2 (docker compose). Archive |
 
 Central repos live in `~/`, the rest in `~/Documents`.
 Thesis text repos (`Masterthesis`, `Masteroppgave`, `MasterThesis_old`) and unrelated projects are not part of the cluster.
@@ -34,15 +34,15 @@ Thesis text repos (`Masterthesis`, `Masteroppgave`, `MasterThesis_old`) and unre
 ## Public and private
 
 - `athena` is public. Nothing about the network (registry address, tailnet hostnames), no secrets, no personal prompts or data. Start from a fresh history. The old history is not copied, files are, after a check for committed tokens and `.env` files.
-- `thesis-lab` is private, but private is still hosted on GitHub. It never holds confidential data, or anything derived from it: samples, schemas, column names, fixtures. Tests use synthetic data. The data lives in `/srv`.
-- `thesis-lab` keeps Lab, Enclave and Bench code in separate directories that map one to one to their namespaces. Only the Enclave directory touches confidential data.
+- `master-thesis` is private, but private is still hosted on GitHub. Git never holds confidential data, or anything derived from it: samples, schemas, column names, fixtures. Tests use synthetic data. The data lives in `/srv` and in gitignored folders of the repo.
+- `master-thesis` keeps Lab, Enclave and Bench code in separate directories that map one to one to their namespaces. Only the Enclave directory touches confidential data.
 - Add a `.gitignore` and a pre-commit check for data file types before the first commit.
 
 ## Build and deploy
 
 1. Build the image from the repo with Docker.
 2. Push it to the registry at `kratos:5000` (containerd maps that name to the node address in dotfiles_nix, so the tailnet address stays out of this public repo) and print the digest: `skopeo copy docker-daemon:<image> docker://<registry>/<name>:<tag>`, then `skopeo inspect` for the digest. A script in each repo does this. It needs no insecure-registry setting in the Docker daemon.
-3. Put the digest in the manifest in `homelab` (`apps/athena`, `apps/thesis-lab`). repocheck requires digest pins.
+3. Put the digest in the manifest in `homelab` (`apps/athena`, `apps/master-thesis`). repocheck requires digest pins.
 4. Push `homelab` to `main`. Flux deploys.
 
 Public images (athena) are published to `ghcr.io` by GitHub Actions. `homelab` then mirrors the published digest with `scripts/mirror` and never builds it.
@@ -62,7 +62,7 @@ The old API and ingest were removed from the cluster on 2026-11-04. `athena` is 
 ## Order
 
 1. Create the empty repos on GitHub.
-2. Scaffold `thesis-lab`: Dockerfiles, compose, the manifests in `apps/thesis-lab`.
+2. Scaffold `master-thesis`: Dockerfiles, compose, the manifests in `apps/master-thesis`.
 3. Build `athena` from scratch (done: core, UI, tool servers, memory, notes, notify, cluster servers), then the manifests in `apps/athena`.
 4. Add `scripts/bump`.
 

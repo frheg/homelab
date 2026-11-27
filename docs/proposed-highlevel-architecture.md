@@ -24,7 +24,7 @@ This orchestrates all services under this tier.
 
 A homemade chatbot or assistant to talk to and do stuff with locally running services and LLMs with tools and APIs etc.
 
-#### Thesis-lab - dependent on other services 
+#### master-thesis - dependent on other services 
 
 Homemade lab for my mastersthesis running a lot of different services under it again, perhaps with these tier, albeit they might change into the new version 2 implementation:
 
@@ -64,7 +64,7 @@ Currently only used for homelab, but could perhaps be extended later with more c
 
 Currently only used for homelab I think, but could perhaps be extended later with more collections for other uses.
 
-The PostgreSQL instance for the sensitive data in the enclave regarding the Thesis-lab should be discusses as it is sensitive and important - should this be strictly inside the thesis-lab pod or the enclave pod, or a separate PostgreSQL instance?
+The PostgreSQL instance for the sensitive data in the enclave regarding master-thesis should be discusses as it is sensitive and important - should this be strictly inside the master-thesis pod or the enclave pod, or a separate PostgreSQL instance?
 
 ## General
 

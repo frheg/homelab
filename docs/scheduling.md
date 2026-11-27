@@ -9,7 +9,7 @@ The GPU arbiter (docs/gpu-arbiter.md) stays the base. This adds tiers, demand pr
 
 - The GPU is exclusive, but RAM is the tighter limit. Strata alone takes 22 Gi.
 - Pairwise rules (`yields-to`) do not scale to more services.
-- Autonomous work (thesis lab, training) must use idle capacity and step aside when you need the machine.
+- Autonomous work (master-thesis lab, training) must use idle capacity and step aside when you need the machine.
 - Limits cannot be summed to check a plan: llm 24 Gi, llm-cpu 26 Gi, strata 22 Gi, qdrant 8 Gi already exceed the pod total.
 
 ## Terms
@@ -30,7 +30,7 @@ Priority belongs to the demand, not the Deployment. `llm` serves you and the lab
 | infra | always on, never preempted, small | k3s system pods, Flux, gpuctl, cdi plugin, gpuproxies, registry, monitoring, Homepage, Headlamp, panel |
 | default | the resting state, runs when nothing else is asked | llm, llm-cpu, Postgres, Qdrant, SearXNG, HomeLab API, Neo4j |
 | interactive | woken or started by you, wins the GPU | Strata, Stable Diffusion, anything you acquire or reserve |
-| background | resumable work in whatever is free | thesis lab workers, ingest, bench runs, training, nightly jobs |
+| background | resumable work in whatever is free | master-thesis lab workers, ingest, bench runs, training, nightly jobs |
 
 Order: infra, interactive, default, background.
 

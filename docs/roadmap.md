@@ -50,7 +50,7 @@ consumers. The migration notes and scripts are in docs/archive and scripts/archi
   5 more MoE layers to RAM (the chat model writes somewhat slower), or load it only for speech. NbAiLab's newer
   Piper voices (nb-tts-piper-voices-2607-female/male-oslo) are private. English is Kokoro (done first).
 
-## New thesislab
+## master-thesis lab
 
 Not a port. Needs a spec first: what it does, which platform services it
 uses (llm, Postgres, embed, rerank, grobid), what it may reach on the network.
@@ -65,7 +65,7 @@ from the platform.
 3. Shared data services.
 4. gpuproxy, profctl, UI buttons.
 5. HomeLab migration, service by service.
-6. New thesislab.
+6. master-thesis lab.
 
 ## LLM models: own config each, GPU and CPU, VRAM and RAM
 
