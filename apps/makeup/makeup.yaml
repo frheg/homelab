@@ -1,4 +1,4 @@
-# Makeup Search (masters-sandbox/product-v2): the same image as the docker version, configured by environment only.
+# Makeup Search (master-thesis/tasks/ai-assisted-search-makeup-graphs/task-baseline): the same image as the docker version, configured by environment only.
 #   http://kratos/makeup-demo/   synthetic data, model through llm (logged and captured: fine for synthetic data)
 #   http://kratos/makeup/        real Odfjell data, model through llm-confidential (no request logs or captures)
 # Data lives in /srv/makeup/{demo,real} (store, app.db, derived checks), owned by uid 1000. Always on.
@@ -38,7 +38,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: app
-          image: kratos:5000/makeup-search@sha256:185d0c5c31707c9284bd34f0580cfeb2b1f5a58a6d19eb1eb96d1998fecfb631 # 0.3.2, 2026-11-12
+          image: kratos:5000/makeup-search@sha256:79bcbbcaf817e0e6e1c927ef4251b8f4fecc4fb5b31bf8009ca50bb999d12c7c # 0.3.2, 2026-11-12
           env:
             - { name: DATA_DIR, value: /data }
             - { name: CONFIG_DIR, value: /app/config }
@@ -85,7 +85,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: app
-          image: kratos:5000/makeup-search@sha256:185d0c5c31707c9284bd34f0580cfeb2b1f5a58a6d19eb1eb96d1998fecfb631 # 0.3.2, 2026-11-12
+          image: kratos:5000/makeup-search@sha256:79bcbbcaf817e0e6e1c927ef4251b8f4fecc4fb5b31bf8009ca50bb999d12c7c # 0.3.2, 2026-11-12
           env:
             - { name: DATA_DIR, value: /data }
             - { name: CONFIG_DIR, value: /app/config }

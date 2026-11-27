@@ -71,4 +71,4 @@ Namespace `athena`, manifests in `apps/athena`, images from athena's `scripts/pu
 - Peak budgets for every row (measure, then replace the limits above).
 - Whether STT runs on CPU or takes short GPU bursts.
 - The Enclave Postgres image version.
-- Makeup Search: the image is the masters-sandbox/product-v2 Dockerfile, pushed to kratos:5000 by hand (no nix build).
+- Makeup Search: the image is the master-thesis repo's tasks/ai-assisted-search-makeup-graphs/task-baseline Dockerfile, pushed with `make push REGISTRY=kratos:5000` (no nix build).
