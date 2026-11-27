@@ -38,7 +38,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: app
-          image: kratos:5000/makeup-search@sha256:79bcbbcaf817e0e6e1c927ef4251b8f4fecc4fb5b31bf8009ca50bb999d12c7c # 0.3.2, 2026-11-12
+          image: kratos:5000/makeup-search@sha256:79bcbbcaf817e0e6e1c927ef4251b8f4fecc4fb5b31bf8009ca50bb999d12c7c # 1.0.0, 2026-11-27
           env:
             - { name: DATA_DIR, value: /data }
             - { name: CONFIG_DIR, value: /app/config }
@@ -85,7 +85,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: app
-          image: kratos:5000/makeup-search@sha256:79bcbbcaf817e0e6e1c927ef4251b8f4fecc4fb5b31bf8009ca50bb999d12c7c # 0.3.2, 2026-11-12
+          image: kratos:5000/makeup-search@sha256:79bcbbcaf817e0e6e1c927ef4251b8f4fecc4fb5b31bf8009ca50bb999d12c7c # 1.0.0, 2026-11-27
           env:
             - { name: DATA_DIR, value: /data }
             - { name: CONFIG_DIR, value: /app/config }
