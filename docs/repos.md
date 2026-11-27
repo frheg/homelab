@@ -35,7 +35,7 @@ Thesis text repos (`Masterthesis`, `Masteroppgave`, `MasterThesis_old`) and unre
 
 - `athena` is public. Nothing about the network (registry address, tailnet hostnames), no secrets, no personal prompts or data. Start from a fresh history. The old history is not copied, files are, after a check for committed tokens and `.env` files.
 - `master-thesis` is private, but private is still hosted on GitHub. Git never holds confidential data, or anything derived from it: samples, schemas, column names, fixtures. Tests use synthetic data. The data lives in `/srv` and in gitignored folders of the repo.
-- `master-thesis` keeps Lab, Enclave and Bench code in separate directories that map one to one to their namespaces. Only the Enclave directory touches confidential data.
+- `master-thesis` keeps Lab, Enclave and Bench code in separate directories that map one to one to their namespaces. Confidential data, and anything naming its schema, lives only in gitignored folders (a task's `task-data/` and `export/local/`) and in `/srv`.
 - Add a `.gitignore` and a pre-commit check for data file types before the first commit.
 
 ## Build and deploy
